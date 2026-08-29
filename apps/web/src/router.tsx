@@ -1,5 +1,4 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
-import { env } from "@reply/env/web";
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
@@ -8,10 +7,8 @@ import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
-  const convexUrl = env.VITE_CONVEX_URL;
-  if (!convexUrl) {
-    throw new Error("VITE_CONVEX_URL is not set");
-  }
+  const convexUrl =
+    import.meta.env.VITE_CONVEX_URL ?? "https://hip-goat-574.convex.cloud";
 
   const convexQueryClient = new ConvexQueryClient(convexUrl);
 

@@ -5,17 +5,29 @@
   "license": "ISC",
   "author": "",
   "scripts": {
+    "check-types": "tsc --noEmit -p convex/tsconfig.json",
     "dev": "convex dev",
-    "dev:setup": "convex dev --configure --until-success"
+    "dev:setup": "convex dev --configure --until-success",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@context-dot-dev/convex": "^1.0.1",
+    "@convex-dev/agent": "^0.7.1",
+    "@convex-dev/ai-sdk-provider": "^0.1.0",
+    "@convex-dev/auth": "^2.0.0-alpha.1",
+    "ai": "^7.0.84",
     "convex": "catalog:",
+    "convex-helpers": "^0.1.123",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@reply/config": "workspace:*",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "convex-test": "^0.0.56",
+    "typescript": "catalog:",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
   }
 }

@@ -1,86 +1,71 @@
-# reply
+# Reply
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Convex, and more.
+Reply is the prepared base repository for a one-day hackathon build: a shared inbox concept for service businesses that will eventually combine collaborative email handling, company context, and AI-assisted drafting.
 
-## Features
+This repository intentionally contains no product schema or feature implementation. The team can make those decisions together during the hackathon without first undoing speculative code.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Convex** - Reactive backend-as-a-service platform
-- **Turborepo** - Optimized monorepo build system
+## Ready now
 
-## Getting Started
+- Bun workspace and lockfile
+- TanStack Start, React 19, TypeScript, Tailwind CSS, and Turborepo
+- Savari Convex project and development deployment
+- Convex Auth v2 alpha component and signing keys
+- Convex Agent and AI Gateway provider packages
+- Official Context.dev Convex component
+- Shared shadcn package with the complete stable component set
+- Convex AI coding guidance and project skills
+- Polished starter status screen
+- Product scope, schedule, demo story, and architecture plan
 
-First, install the dependencies:
+## Intentionally left for the hackathon
+
+- Product schema and indexes
+- Auth provider and app-owned user model
+- Dummy inbox data
+- Shared inbox UI
+- Assignment, labels, drafts, and collaboration behavior
+- Context.dev enrichment action
+- AI Gateway prompting and draft action
+- Gmail or Outlook integration
+
+## Run locally
 
 ```bash
 bun install
-```
-
-## Convex Setup
-
-This project uses Convex as a backend. You'll need to set up Convex before running the app:
-
-```bash
-bun run dev:setup
-```
-
-Follow the prompts to create a new Convex project and connect it to your application.
-
-Copy environment variables from `packages/backend/.env.local` to `apps/*/.env`.
-
-Then, run the development server:
-
-```bash
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-Your app will connect to the Convex cloud backend automatically.
+Open [http://localhost:3001](http://localhost:3001).
 
-## UI Customization
+The repository is already linked to the Savari `reply` Convex project. For a fresh clone or a different deployment, update `VITE_CONVEX_URL` in `apps/web/.env` and configure the backend from `packages/backend` with Bun.
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+## Context.dev key
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
+The development deployment currently has an explicit placeholder so the component can mount. Replace it before implementing the Context.dev action:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+cd packages/backend
+bunx convex env set CONTEXT_DEV_API_KEY your_context_dev_key
 ```
 
-Import shared components like this:
+## Commands
 
-```tsx
-import { Button } from "@reply/ui/components/button";
+```bash
+bun run dev          # Start web and Convex development processes
+bun run dev:web      # Start only TanStack Start
+bun run dev:server   # Start only Convex
+bun run build        # Build the workspace
+bun run check-types  # Type-check web, backend, and shared UI
+bun run test         # Run the starter test suite
 ```
 
-### Add app-specific blocks
+## Project map
 
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Project Structure
-
-```
-reply/
-├── apps/
-│   ├── web/         # Frontend application (React + TanStack Start)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── backend/     # Convex backend functions and schema
+```text
+apps/web/                    TanStack Start app and setup screen
+packages/backend/convex/     Empty schema, health check, mounted components
+packages/ui/                 Shared shadcn components and Reply design tokens
+docs/hackathon-plan.md       Build plan, demo path, and scope guardrails
 ```
 
-## Available Scripts
-
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:setup`: Setup and configure your Convex project
-- `bun run check-types`: Check TypeScript types across all apps
+Read [`docs/hackathon-plan.md`](docs/hackathon-plan.md) before starting feature work.

@@ -1,11 +1,11 @@
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { api } from "@reply/backend/convex/_generated/api";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import { Toaster } from "@reply/ui/components/sonner";
+import { TooltipProvider } from "@reply/ui/components/tooltip";
 import type { QueryClient } from "@tanstack/react-query";
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { ConvexProvider } from "convex/react";
-
-import Header from "../components/header";
 
 import appCss from "../index.css?url";
 
@@ -25,10 +25,23 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "My App",
+        title: "Reply — hackathon starter",
+      },
+      {
+        name: "description",
+        content: "The prepared technical foundation and build plan for the Reply hackathon project.",
+      },
+      {
+        name: "theme-color",
+        content: "#202d2a",
       },
     ],
     links: [
+      {
+        rel: "icon",
+        href: "/favicon.svg",
+        type: "image/svg+xml",
+      },
       {
         rel: "stylesheet",
         href: appCss,
@@ -42,21 +55,23 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 function RootDocument() {
   const { convexQueryClient } = Route.useRouteContext();
   return (
-    <ConvexProvider client={convexQueryClient.convexClient}>
-      <html lang="en" className="dark">
+    <ConvexAuthProvider
+      client={convexQueryClient.convexClient}
+      api={{ refreshSession: api.auth.refreshSession, signOut: api.auth.signOut }}
+    >
+      <html lang="en">
         <head>
           <HeadContent />
         </head>
         <body>
-          <div className="grid h-svh grid-rows-[auto_1fr]">
-            <Header />
+          <TooltipProvider>
             <Outlet />
-          </div>
-          <Toaster richColors />
-          <TanStackRouterDevtools position="bottom-left" />
+          </TooltipProvider>
+          <Toaster richColors position="bottom-right" />
+          {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-left" />}
           <Scripts />
         </body>
       </html>
-    </ConvexProvider>
+    </ConvexAuthProvider>
   );
 }
