@@ -21,6 +21,7 @@ type InboxScreenProps = {
   onSignOut?: () => void;
   /** Teammates currently viewing the selected thread (live presence). */
   viewers?: ThreadViewer[];
+  liveEmail?: boolean;
   /** Workspace name + switcher shown at the top of the sidebar. */
   workspace?: WorkspaceSwitcherData;
 };
@@ -29,7 +30,14 @@ type InboxScreenProps = {
  * Desktop shared-inbox screen (1280–1440px). Pure presentation: all data and
  * effects flow through the `InboxController` seam.
  */
-export function InboxScreen({ controller, currentUser, onSignOut, viewers, workspace }: InboxScreenProps) {
+export function InboxScreen({
+  controller,
+  currentUser,
+  onSignOut,
+  viewers,
+  liveEmail = false,
+  workspace,
+}: InboxScreenProps) {
   const { state } = controller;
   // Done views land on the Done tab; everything else starts on Open.
   const defaultFilter: ThreadFilter = state.selectedView === "done" ? "closed" : "open";
@@ -89,6 +97,7 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers, works
         onSelectInbox={controller.selectInbox}
         currentUser={currentUser}
         onSignOut={onSignOut}
+        liveEmail={liveEmail}
         workspace={workspace}
       />
       <div className="flex min-w-0 flex-1 py-3 pr-3">
