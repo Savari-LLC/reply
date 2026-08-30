@@ -194,6 +194,7 @@ export function ConvexInboxPage() {
   const sendReplyMutation = useMutation(api.inbox.sendReply);
   const simulateMutation = useMutation(api.simulate.simulateIncomingEmail);
   const enrichThread = useAction(api.companyContext.enrichThread);
+  const generateDraftAction = useAction(api.copilot.generateDraft);
 
   const [operations, setOperations] = useState(INITIAL_OPERATIONS);
   const setOperation = useCallback(
@@ -432,9 +433,25 @@ export function ConvexInboxPage() {
       toast.info("Label editing isn't available yet.", { id: TOAST_IDS.labels });
     };
 
-    const generateDraft = async (): Promise<string> => {
-      setOperation("draft", "error", "Copilot drafting isn't connected yet.");
-      throw new Error("Copilot drafting isn't connected yet.");
+    // Convex AI Gateway drafting: the action reads the whole thread plus the
+    // stored Context.dev company profile and refines any in-progress draft.
+    // The composer owns the inline failure state, so no toast here.
+    const generateDraft = async (
+      threadId: string,
+      currentDraft?: string,
+    ): Promise<string> => {
+      setOperation("draft", "loading");
+      try {
+        const draft = await generateDraftAction({
+          threadId: threadId as Id<"threads">,
+          currentDraft,
+        });
+        setOperation("draft", "success");
+        return draft;
+      } catch (error) {
+        setOperation("draft", "error", "Copilot could not draft a reply.");
+        throw error;
+      }
     };
 
     const sendReply = async (threadId: string, body: string) => {
@@ -497,6 +514,7 @@ export function ConvexInboxPage() {
     setStatusMutation,
     sendReplyMutation,
     simulateMutation,
+    generateDraftAction,
     markRead,
     runSetup,
     setOperation,
