@@ -12,6 +12,8 @@ export default defineSchema({
         username: v.string(),
         name: v.optional(v.string()),
         email: v.optional(v.string()),
+        // Avatar uploaded by the member; takes precedence over provider images.
+        imageStorageId: v.optional(v.id("_storage")),
       }),
       v.object({
         authProvider: v.literal("google"),
@@ -21,6 +23,7 @@ export default defineSchema({
         email: v.optional(v.string()),
         image: v.optional(v.string()),
         picture: v.optional(v.string()),
+        imageStorageId: v.optional(v.id("_storage")),
       }),
     ),
   )
@@ -71,31 +74,67 @@ export default defineSchema({
     .index("by_workspaceId_and_inboxId", ["workspaceId", "inboxId"])
     .index("by_userId", ["userId"]),
 
+  // Shared inboxes belong to the whole workspace; personal inboxes are owned
+  // by one member (`ownerId`) and are only visible to that owner. Rows
+  // predating the `kind` field are shared.
   inboxes: defineTable({
     workspaceId: v.id("workspaces"),
     name: v.string(),
+    kind: v.optional(v.union(v.literal("shared"), v.literal("personal"))),
+    ownerId: v.optional(v.id("users")),
   })
     .index("by_workspaceId", ["workspaceId"])
-    .index("by_workspaceId_and_name", ["workspaceId", "name"]),
+    .index("by_workspaceId_and_name", ["workspaceId", "name"])
+    .index("by_workspaceId_and_ownerId", ["workspaceId", "ownerId"]),
 
-  // Simulated email connectors. A channel delivers into exactly one inbox.
+  // Simulated email connectors. Channels are workspace-level: shared channels
+  // belong to the team, personal channels to one member. Conversations live in
+  // the channel and surface in every inbox linked through `inboxChannels`.
+  // The "demo" provider seeds sample conversations on creation.
   channels: defineTable({
     workspaceId: v.id("workspaces"),
-    inboxId: v.id("inboxes"),
-    provider: v.union(v.literal("gmail"), v.literal("outlook")),
+    // Legacy field from when a channel delivered into exactly one inbox.
+    inboxId: v.optional(v.id("inboxes")),
+    provider: v.union(v.literal("gmail"), v.literal("outlook"), v.literal("demo")),
     emailAddress: v.string(),
     displayName: v.string(),
     status: v.union(v.literal("connected"), v.literal("disconnected")),
+    kind: v.optional(v.union(v.literal("shared"), v.literal("personal"))),
+    ownerId: v.optional(v.id("users")),
   })
     .index("by_inboxId", ["inboxId"])
     .index("by_workspaceId", ["workspaceId"])
     .index("by_workspaceId_and_emailAddress", ["workspaceId", "emailAddress"]),
 
+  // Many-to-many: an inbox aggregates several channels, and one channel can
+  // surface in several inboxes (e.g. shared Sales and your personal inbox).
+  inboxChannels: defineTable({
+    workspaceId: v.id("workspaces"),
+    inboxId: v.id("inboxes"),
+    channelId: v.id("channels"),
+  })
+    .index("by_inboxId_and_channelId", ["inboxId", "channelId"])
+    .index("by_channelId", ["channelId"])
+    .index("by_workspaceId", ["workspaceId"]),
+
+  // Grants a member the right to see/link a shared channel. Admins bypass;
+  // personal channels are usable only by their owner.
+  channelAccess: defineTable({
+    workspaceId: v.id("workspaces"),
+    channelId: v.id("channels"),
+    userId: v.id("users"),
+  })
+    .index("by_channelId_and_userId", ["channelId", "userId"])
+    .index("by_workspaceId_and_channelId", ["workspaceId", "channelId"])
+    .index("by_workspaceId_and_userId", ["workspaceId", "userId"]),
+
   // The unit of work. Status is open | waiting | closed; the "Assigned" view
   // is derived (status "open" with assigneeId set), never stored.
   threads: defineTable({
     workspaceId: v.id("workspaces"),
-    inboxId: v.id("inboxes"),
+    // Legacy: threads now belong to a channel; inbox membership is derived
+    // through `inboxChannels`.
+    inboxId: v.optional(v.id("inboxes")),
     channelId: v.id("channels"),
     subject: v.string(),
     status: v.union(
@@ -145,10 +184,11 @@ export default defineSchema({
     sentAt: v.number(),
   }).index("by_threadId_and_sentAt", ["threadId", "sentAt"]),
 
-  // Per-user unread state, scoped for workspace/inbox unread counts.
+  // Per-user unread state, scoped for workspace unread counts.
   threadReads: defineTable({
     workspaceId: v.id("workspaces"),
-    inboxId: v.id("inboxes"),
+    // Legacy: unread state is per thread; inboxes are derived from channels.
+    inboxId: v.optional(v.id("inboxes")),
     threadId: v.id("threads"),
     userId: v.id("users"),
     lastReadAt: v.number(),

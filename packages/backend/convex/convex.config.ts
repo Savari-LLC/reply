@@ -16,7 +16,6 @@ const app = defineApp({
     AUTH_GOOGLE_CLIENT_ID: v.string(),
     AUTH_GOOGLE_CLIENT_SECRET: v.string(),
     CONTEXT_DEV_API_KEY: v.string(),
-    ALLOW_DEMO_TEST_PAGE: v.optional(v.string()),
     APP_URL: v.string(),
     RESEND_API_KEY: v.string(),
     RESEND_FROM_EMAIL: v.string(),

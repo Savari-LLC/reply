@@ -6,6 +6,7 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, internalMutation, internalQuery, query } from "./_generated/server";
 import { requireCurrentUser, requireIdentity } from "./authHelpers";
+import { ensurePersonalInbox, grantAllSharedInboxes } from "./lib/access";
 
 const invitationRateLimiter = new RateLimiter(components.rateLimiter, {
   sendInvitations: { kind: "fixed window", rate: 50, period: HOUR },
@@ -369,6 +370,8 @@ export const acceptPrepared = internalMutation({
         userId: user._id,
         role: "member",
       });
+      await ensurePersonalInbox(ctx, workspace._id, user._id);
+      await grantAllSharedInboxes(ctx, workspace._id, user._id);
     }
     if (user.authProvider === "password" && user.email === undefined) {
       await ctx.db.patch(user._id, { email: invitation.email });

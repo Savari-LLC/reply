@@ -69,7 +69,7 @@ describe("workspace onboarding", () => {
         .collect();
       return inboxes.map((inbox) => inbox.name).sort();
     });
-    expect(inboxNames).toEqual(["Accounts", "Sales", "Support"]);
+    expect(inboxNames).toEqual(["Accounts", "Sales", "Support", "Your inbox"]);
   });
 
   test("accepts a single-use invitation and rejects reuse by another account", async () => {

@@ -1,11 +1,8 @@
 import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, type MutationCtx } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 
-export const WORKSPACE_SLUG = "reply-demo";
-const NORTHSTAR_SENDER_EMAIL = "rania.khalil@northstar.ae";
-const NORTHSTAR_SUBJECT = "Quote for GCC-wide delivery coverage";
 const MINUTE = 60_000;
 
 type TeammateKey = "maya" | "noah" | "leila" | "omar";
@@ -21,36 +18,19 @@ const teammates: Array<{
   { key: "omar", username: "omar", name: "Omar Farouk" },
 ];
 
-type InboxKey = "sales" | "accounts" | "support";
+export type SampleDataset = "sales" | "accounts" | "support";
+type InboxKey = SampleDataset;
 
-const inboxes: Array<{
-  key: InboxKey;
-  name: string;
-  provider: "gmail" | "outlook";
-  emailAddress: string;
-  displayName: string;
-}> = [
-  {
-    key: "sales",
-    name: "Sales",
-    provider: "gmail",
-    emailAddress: "sales@reply.demo",
-    displayName: "Reply Sales",
-  },
-  {
-    key: "accounts",
-    name: "Accounts",
-    provider: "outlook",
-    emailAddress: "accounts@reply.demo",
-    displayName: "Reply Accounts",
-  },
-  {
-    key: "support",
-    name: "Support",
-    provider: "gmail",
-    emailAddress: "support@reply.demo",
-    displayName: "Reply Support",
-  },
+export const sampleDatasetValidator = v.union(
+  v.literal("sales"),
+  v.literal("accounts"),
+  v.literal("support"),
+);
+
+export const SAMPLE_DATASETS: Array<{ key: SampleDataset; name: string }> = [
+  { key: "sales", name: "Sales sample" },
+  { key: "accounts", name: "Accounts sample" },
+  { key: "support", name: "Support sample" },
 ];
 
 const labelDefs = [
@@ -679,299 +659,178 @@ export function isSeedUser(user: Doc<"users">) {
   );
 }
 
-async function isSeedOwned(ctx: MutationCtx, workspace: Doc<"workspaces">) {
-  if (workspace.demoSeed === true) return true;
-  const memberships = await ctx.db
-    .query("memberships")
-    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspace._id))
-    .collect();
-  if (memberships.length === 0) return false;
-  for (const membership of memberships) {
-    const user = await ctx.db.get(membership.userId);
-    if (!user || !isSeedUser(user)) return false;
-  }
-  return true;
-}
-
-async function clearWorkspace(ctx: MutationCtx, workspace: Doc<"workspaces">) {
-  if (!(await isSeedOwned(ctx, workspace))) {
-    throw new Error(
-      "Refusing to clear a workspace that was not created by the demo seed",
-    );
-  }
-  const workspaceThreads = await ctx.db
-    .query("threads")
-    .withIndex("by_workspaceId_and_lastMessageAt", (q) =>
-      q.eq("workspaceId", workspace._id),
-    )
-    .collect();
-  for (const thread of workspaceThreads) {
-    const threadMessages = await ctx.db
-      .query("messages")
-      .withIndex("by_threadId_and_sentAt", (q) => q.eq("threadId", thread._id))
-      .collect();
-    for (const message of threadMessages) await ctx.db.delete(message._id);
-    const threadNotes = await ctx.db
-      .query("notes")
-      .withIndex("by_threadId", (q) => q.eq("threadId", thread._id))
-      .collect();
-    for (const note of threadNotes) {
-      const noteMentions = await ctx.db
-        .query("mentions")
-        .withIndex("by_noteId", (q) => q.eq("noteId", note._id))
-        .collect();
-      for (const mention of noteMentions) await ctx.db.delete(mention._id);
-      await ctx.db.delete(note._id);
-    }
-    const reads = await ctx.db
-      .query("threadReads")
-      .withIndex("by_threadId", (q) => q.eq("threadId", thread._id))
-      .collect();
-    for (const read of reads) await ctx.db.delete(read._id);
-    const threadLabels = await ctx.db
-      .query("threadLabels")
-      .withIndex("by_threadId_and_labelId", (q) => q.eq("threadId", thread._id))
-      .collect();
-    for (const threadLabel of threadLabels) await ctx.db.delete(threadLabel._id);
-    await ctx.db.delete(thread._id);
-  }
-
-  const workspaceLabels = await ctx.db
-    .query("labels")
-    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspace._id))
-    .collect();
-  for (const label of workspaceLabels) await ctx.db.delete(label._id);
-  const workspaceChannels = await ctx.db
-    .query("channels")
-    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspace._id))
-    .collect();
-  for (const channel of workspaceChannels) await ctx.db.delete(channel._id);
-  const workspaceInboxes = await ctx.db
-    .query("inboxes")
-    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspace._id))
-    .collect();
-  for (const inbox of workspaceInboxes) await ctx.db.delete(inbox._id);
-  const workspaceInboxAccess = await ctx.db
-    .query("inboxAccess")
-    .withIndex("by_workspaceId_and_inboxId", (q) =>
-      q.eq("workspaceId", workspace._id),
-    )
-    .collect();
-  for (const access of workspaceInboxAccess) await ctx.db.delete(access._id);
-  const workspaceProfiles = await ctx.db
-    .query("companyProfiles")
-    .withIndex("by_workspaceId_and_domain", (q) =>
-      q.eq("workspaceId", workspace._id),
-    )
-    .collect();
-  for (const profile of workspaceProfiles) await ctx.db.delete(profile._id);
-
-  const memberships = await ctx.db
-    .query("memberships")
-    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspace._id))
-    .collect();
-  for (const membership of memberships) {
-    const user = await ctx.db.get(membership.userId);
-    if (user && isSeedUser(user)) {
-      await ctx.db.delete(user._id);
-    }
-    await ctx.db.delete(membership._id);
-  }
-  await ctx.db.delete(workspace._id);
-}
-
-export const run = internalMutation({
-  args: { force: v.optional(v.boolean()) },
-  returns: v.object({
-    seeded: v.boolean(),
-    workspaceId: v.id("workspaces"),
-    northstarThreadId: v.id("threads"),
-    threadCount: v.number(),
-    messageCount: v.number(),
-  }),
-  handler: async (ctx, args) => seedDemo(ctx, args.force ?? false),
-});
-
-export async function seedDemo(ctx: MutationCtx, force: boolean) {
-  {
-    const existing = await ctx.db
-      .query("workspaces")
-      .withIndex("by_slug", (q) => q.eq("slug", WORKSPACE_SLUG))
+/**
+ * Idempotently creates the demo teammates as members of the workspace so
+ * seeded threads have realistic assignees and reply authors. Seed users are
+ * namespaced per workspace and never registered with the auth provider, so
+ * they cannot sign in or collide with real accounts.
+ */
+async function ensureSeedTeammates(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+): Promise<Record<TeammateKey, Id<"users">>> {
+  const suffix = workspaceId.slice(-8).toLowerCase();
+  const userIds = {} as Record<TeammateKey, Id<"users">>;
+  for (const teammate of teammates) {
+    const providerAccountId = `seed|${workspaceId}|${teammate.username}`;
+    let user = await ctx.db
+      .query("users")
+      .withIndex("by_authProvider_and_providerAccountId", (q) =>
+        q.eq("authProvider", "password").eq("providerAccountId", providerAccountId),
+      )
       .unique();
-    if (existing) {
-      if (!force) {
-        const existingThreads = await ctx.db
-          .query("threads")
-          .withIndex("by_workspaceId_and_lastMessageAt", (q) =>
-            q.eq("workspaceId", existing._id),
-          )
-          .order("desc")
-          .collect();
-        const salesInbox = await ctx.db
-          .query("inboxes")
-          .withIndex("by_workspaceId_and_name", (q) =>
-            q.eq("workspaceId", existing._id).eq("name", "Sales"),
-          )
-          .unique();
-        const northstar = existingThreads.find(
-          (thread) =>
-            thread.inboxId === salesInbox?._id &&
-            thread.senderEmail === NORTHSTAR_SENDER_EMAIL &&
-            thread.subject === NORTHSTAR_SUBJECT,
-        );
-        if (!northstar) throw new Error("Existing seed data is incomplete; re-run with force: true");
-        let messageCount = 0;
-        for (const thread of existingThreads) {
-          const threadMessages = await ctx.db
-            .query("messages")
-            .withIndex("by_threadId_and_sentAt", (q) =>
-              q.eq("threadId", thread._id),
-            )
-            .collect();
-          messageCount += threadMessages.length;
-        }
-        return {
-          seeded: false,
-          workspaceId: existing._id,
-          northstarThreadId: northstar._id,
-          threadCount: existingThreads.length,
-          messageCount,
-        };
-      }
-      await clearWorkspace(ctx, existing);
-    }
-
-    const now = Date.now();
-    const workspaceId = await ctx.db.insert("workspaces", {
-      name: "Reply Demo",
-      slug: WORKSPACE_SLUG,
-      demoSeed: true,
-    });
-
-    const userIds = {} as Record<TeammateKey, Id<"users">>;
-    for (const teammate of teammates) {
+    if (!user) {
       const userId = await ctx.db.insert("users", {
         authProvider: "password",
-        providerAccountId: `seed|${teammate.username}`,
-        username: teammate.username,
+        providerAccountId,
+        username: `${teammate.username}-demo-${suffix}`,
         name: teammate.name,
       });
-      userIds[teammate.key] = userId;
+      user = await ctx.db.get(userId);
+    }
+    if (!user) throw new Error("Could not create demo teammate");
+    userIds[teammate.key] = user._id;
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", workspaceId).eq("userId", user._id),
+      )
+      .unique();
+    if (!membership) {
       await ctx.db.insert("memberships", {
         workspaceId,
-        userId,
-        role: teammate.key === "maya" ? "admin" : "member",
+        userId: user._id,
+        role: "member",
       });
     }
+  }
+  return userIds;
+}
 
-    const inboxIds = {} as Record<InboxKey, Id<"inboxes">>;
-    const channelIds = {} as Record<InboxKey, Id<"channels">>;
-    for (const inbox of inboxes) {
-      const inboxId = await ctx.db.insert("inboxes", {
-        workspaceId,
-        name: inbox.name,
-      });
-      inboxIds[inbox.key] = inboxId;
-      channelIds[inbox.key] = await ctx.db.insert("channels", {
-        workspaceId,
-        inboxId,
-        provider: inbox.provider,
-        emailAddress: inbox.emailAddress,
-        displayName: inbox.displayName,
-        status: "connected",
-      });
-      for (const teammate of teammates) {
-        await ctx.db.insert("inboxAccess", {
-          workspaceId,
-          inboxId,
-          userId: userIds[teammate.key],
-        });
-      }
+async function ensureLabels(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+): Promise<Map<string, Id<"labels">>> {
+  const labelIds = new Map<string, Id<"labels">>();
+  for (const label of labelDefs) {
+    const existing = await ctx.db
+      .query("labels")
+      .withIndex("by_workspaceId_and_name", (q) =>
+        q.eq("workspaceId", workspaceId).eq("name", label.name),
+      )
+      .unique();
+    labelIds.set(
+      label.name,
+      existing?._id ??
+        (await ctx.db.insert("labels", { workspaceId, ...label })),
+    );
+  }
+  return labelIds;
+}
+
+async function ensureCompanyProfiles(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+) {
+  const now = Date.now();
+  for (const profile of companyProfiles) {
+    const existing = await ctx.db
+      .query("companyProfiles")
+      .withIndex("by_workspaceId_and_domain", (q) =>
+        q.eq("workspaceId", workspaceId).eq("domain", profile.domain),
+      )
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("companyProfiles", { workspaceId, ...profile, fetchedAt: now });
     }
-
-    const labelIds = new Map<string, Id<"labels">>();
-    for (const label of labelDefs) {
-      labelIds.set(
-        label.name,
-        await ctx.db.insert("labels", {
-          workspaceId,
-          name: label.name,
-          color: label.color,
-        }),
-      );
-    }
-
-    for (const profile of companyProfiles) {
-      await ctx.db.insert("companyProfiles", {
-        workspaceId,
-        ...profile,
-        fetchedAt: now,
-      });
-    }
-
-    let northstarThreadId: Id<"threads"> | null = null;
-    let messageCount = 0;
-    for (const spec of threads) {
-      const lastMessageAt = now - spec.minutesAgo * MINUTE;
-      const senderDomain = spec.senderEmail.split("@")[1] ?? "";
-      const threadId = await ctx.db.insert("threads", {
-        workspaceId,
-        inboxId: inboxIds[spec.inbox],
-        channelId: channelIds[spec.inbox],
-        subject: spec.subject,
-        status: spec.status,
-        assigneeId: spec.assignee ? userIds[spec.assignee] : undefined,
-        priority: spec.priority,
-        senderName: spec.senderName,
-        senderEmail: spec.senderEmail,
-        senderDomain,
-        lastMessageAt,
-      });
-      if (
-        spec.inbox === "sales" &&
-        spec.senderEmail === NORTHSTAR_SENDER_EMAIL &&
-        spec.subject === NORTHSTAR_SUBJECT
-      ) {
-        northstarThreadId = threadId;
-      }
-      for (const message of spec.messages) {
-        await ctx.db.insert("messages", {
-          workspaceId,
-          threadId,
-          direction: message.direction,
-          authorId: message.author ? userIds[message.author] : undefined,
-          senderName: message.direction === "inbound" ? spec.senderName : undefined,
-          senderEmail:
-            message.direction === "inbound" ? spec.senderEmail : undefined,
-          body: message.body,
-          sentAt: lastMessageAt - message.minutesBefore * MINUTE,
-        });
-        messageCount += 1;
-      }
-      for (const labelName of spec.labels) {
-        const labelId = labelIds.get(labelName);
-        if (labelId) await ctx.db.insert("threadLabels", { threadId, labelId });
-      }
-      if (!spec.unread) {
-        for (const teammate of teammates) {
-          await ctx.db.insert("threadReads", {
-            workspaceId,
-            inboxId: inboxIds[spec.inbox],
-            threadId,
-            userId: userIds[teammate.key],
-            lastReadAt: lastMessageAt + MINUTE,
-          });
-        }
-      }
-    }
-
-    if (!northstarThreadId) throw new Error("Seed data must include the Northstar sales thread");
-    return {
-      seeded: true,
-      workspaceId,
-      northstarThreadId,
-      threadCount: threads.length,
-      messageCount,
-    };
   }
 }
+
+/**
+ * Creates a demo channel carrying one sample dataset. Conversations belong to
+ * the channel; inbox links happen separately. The caller is responsible for
+ * authorization; `actorId` receives read state matching the dataset's unread
+ * story.
+ */
+export async function createSampleChannel(
+  ctx: MutationCtx,
+  args: {
+    workspaceId: Id<"workspaces">;
+    actorId: Id<"users">;
+    dataset: SampleDataset;
+    displayName: string;
+    emailAddress: string;
+    kind: "shared" | "personal";
+  },
+): Promise<{ channelId: Id<"channels">; threadCount: number; messageCount: number }> {
+  const { workspaceId, actorId, dataset } = args;
+  if (!SAMPLE_DATASETS.some((entry) => entry.key === dataset)) {
+    throw new Error("Unknown sample dataset");
+  }
+
+  const userIds = await ensureSeedTeammates(ctx, workspaceId);
+  const labelIds = await ensureLabels(ctx, workspaceId);
+  await ensureCompanyProfiles(ctx, workspaceId);
+
+  const channelId = await ctx.db.insert("channels", {
+    workspaceId,
+    provider: "demo",
+    emailAddress: args.emailAddress,
+    displayName: args.displayName,
+    status: "connected",
+    kind: args.kind,
+    ownerId: args.kind === "personal" ? actorId : undefined,
+  });
+
+  const now = Date.now();
+  const readerIds = [actorId, ...Object.values(userIds)];
+  let threadCount = 0;
+  let messageCount = 0;
+  for (const spec of threads) {
+    if (spec.inbox !== dataset) continue;
+    const lastMessageAt = now - spec.minutesAgo * MINUTE;
+    const senderDomain = spec.senderEmail.split("@")[1] ?? "";
+    const threadId = await ctx.db.insert("threads", {
+      workspaceId,
+      channelId,
+      subject: spec.subject,
+      status: spec.status,
+      assigneeId: spec.assignee ? userIds[spec.assignee] : undefined,
+      priority: spec.priority,
+      senderName: spec.senderName,
+      senderEmail: spec.senderEmail,
+      senderDomain,
+      lastMessageAt,
+    });
+    threadCount += 1;
+    for (const message of spec.messages) {
+      await ctx.db.insert("messages", {
+        workspaceId,
+        threadId,
+        direction: message.direction,
+        authorId: message.author ? userIds[message.author] : undefined,
+        senderName: message.direction === "inbound" ? spec.senderName : undefined,
+        senderEmail: message.direction === "inbound" ? spec.senderEmail : undefined,
+        body: message.body,
+        sentAt: lastMessageAt - message.minutesBefore * MINUTE,
+      });
+      messageCount += 1;
+    }
+    for (const labelName of spec.labels) {
+      const labelId = labelIds.get(labelName);
+      if (labelId) await ctx.db.insert("threadLabels", { threadId, labelId });
+    }
+    if (!spec.unread) {
+      for (const readerId of readerIds) {
+        await ctx.db.insert("threadReads", {
+          workspaceId,
+          threadId,
+          userId: readerId,
+          lastReadAt: lastMessageAt + MINUTE,
+        });
+      }
+    }
+  }
+  return { channelId, threadCount, messageCount };
+}
+

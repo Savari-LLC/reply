@@ -10,10 +10,16 @@
 
 import type * as auth from "../auth.js";
 import type * as authHelpers from "../authHelpers.js";
+import type * as channels from "../channels.js";
 import type * as contextPreview from "../contextPreview.js";
-import type * as demo from "../demo.js";
 import type * as healthCheck from "../healthCheck.js";
+import type * as inbox from "../inbox.js";
+import type * as inboxes from "../inboxes.js";
 import type * as invitations from "../invitations.js";
+import type * as lib_access from "../lib/access.js";
+import type * as lib_avatar from "../lib/avatar.js";
+import type * as lib_cascade from "../lib/cascade.js";
+import type * as members from "../members.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 import type * as workspaces from "../workspaces.js";
@@ -27,10 +33,16 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authHelpers: typeof authHelpers;
+  channels: typeof channels;
   contextPreview: typeof contextPreview;
-  demo: typeof demo;
   healthCheck: typeof healthCheck;
+  inbox: typeof inbox;
+  inboxes: typeof inboxes;
   invitations: typeof invitations;
+  "lib/access": typeof lib_access;
+  "lib/avatar": typeof lib_avatar;
+  "lib/cascade": typeof lib_cascade;
+  members: typeof members;
   seed: typeof seed;
   users: typeof users;
   workspaces: typeof workspaces;

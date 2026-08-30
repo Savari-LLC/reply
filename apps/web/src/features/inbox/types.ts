@@ -37,9 +37,13 @@ export type InboxSummary = {
   id: string;
   name: string;
   slug: string;
+  /** Personal inboxes belong to the signed-in user; shared ones to the team. */
+  kind: "shared" | "personal";
   displayOrder: number;
   unreadCount: number;
   accent: LabelAccent;
+  /** Whether any channel delivers into this inbox (drives empty-state hints). */
+  hasChannel: boolean;
 };
 
 export type Teammate = {
