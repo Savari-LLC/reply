@@ -20,6 +20,7 @@ const siteUrl = process.env.CONVEX_SITE_URL;
 export const { startSignInGoogle, completeSignInGoogle } = setupGoogle(core, {
   component: components.oauthGoogle,
   allowedRedirectOrigins: [
+    "https://reply-web-eight.vercel.app",
     "http://localhost:3001",
     "http://localhost:3002",
     ...(siteUrl ? [new URL(siteUrl).origin] : []),
