@@ -338,6 +338,23 @@ describe("mapDevinSession", () => {
     });
   });
 
+  test("blocked sessions with verified findings but no PR complete as fix-ready", () => {
+    const progress = mapDevinSession({
+      status_enum: "blocked",
+      structured_output: {
+        stage: "testing",
+        root_cause: "The checkout sent the cart id instead of the payment token.",
+        fix_summary: "Checkout now sends the issued payment token.",
+        tests_passed: true,
+      },
+    });
+    expect(progress).toMatchObject({
+      outcome: "completed",
+      status: "completed",
+      testsPassed: true,
+    });
+  });
+
   test("no_issue_found completes with the flag set", () => {
     const progress = mapDevinSession({
       status_enum: "working",

@@ -100,7 +100,8 @@ export function buildInvestigationPrompt(input: {
     "- If you cannot find a reproducible software issue, set `stage` to no_issue_found and explain in customer_summary.",
     "- Fill customer_summary, impact, root_cause, and fix_summary in plain business language for a non-technical business owner: no code, file names, stack traces, or git terminology.",
     "- Set tests_passed after running tests, and pull_request_url / pull_request_number after opening the PR.",
-    "- Set stage to completed only after the pull request is open.",
+    "- Set stage to completed once the pull request is open.",
+    "- If you cannot push or open a pull request (for example, missing repository write access), do NOT stall: still set stage to completed once the fix is verified, and note in fix_summary that the change is ready to publish.",
   ].join("\n");
 }
 
@@ -173,9 +174,13 @@ export function mapDevinSession(session: {
   const stageDone = stage === "completed" || stage === "no_issue_found";
   const sessionDone = session.status_enum === "finished";
   // Devin parks in "blocked" when it is done and awaiting a human; treat it
-  // as terminal once it has produced a PR or a definitive stage.
+  // as terminal once it has produced a PR, a definitive stage, or verified
+  // findings (root cause + fix) it cannot publish, e.g. without repo access.
+  const definitiveFindings =
+    progress.rootCause !== undefined && progress.fixSummary !== undefined;
   const blockedButDone =
-    session.status_enum === "blocked" && (stageDone || pullRequestUrl !== undefined);
+    session.status_enum === "blocked" &&
+    (stageDone || pullRequestUrl !== undefined || definitiveFindings);
 
   if (stageDone || sessionDone || blockedButDone) {
     progress.outcome = "completed";
