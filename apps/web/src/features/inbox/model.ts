@@ -21,7 +21,7 @@ export type InboxController = {
   setPriority: (threadId: string, priority: ThreadPriority) => Promise<void>;
   setLabels: (threadId: string, labels: string[]) => Promise<void>;
   generateDraft: (threadId: string) => Promise<string>;
-  sendReply: (threadId: string, body: string) => Promise<void>;
+  sendReply: (threadId: string, body: string, bodyHtml?: string) => Promise<void>;
   retryLoad: (scope: LoadScope) => Promise<void>;
 };
 

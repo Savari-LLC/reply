@@ -47,7 +47,7 @@ export function InboxScreen({ controller }: InboxScreenProps) {
       setPriority: (priority) => controller.setPriority(requireThread(), priority),
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
       generateDraft: () => controller.generateDraft(requireThread()),
-      sendReply: (body) => controller.sendReply(requireThread(), body),
+      sendReply: (body, bodyHtml) => controller.sendReply(requireThread(), body, bodyHtml),
       retry: () => controller.retryLoad("thread"),
     };
   }, [controller, state.selectedThreadId]);
