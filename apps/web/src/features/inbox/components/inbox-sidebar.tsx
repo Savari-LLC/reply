@@ -2,19 +2,27 @@ import { ChevronDown, Search } from "lucide-react";
 
 import { LABEL_ACCENT_STYLES } from "../constants";
 import type { InboxSummary } from "../types";
-import { SidebarRail } from "./sidebar-rail";
+import { SidebarRail, type RailUser } from "./sidebar-rail";
 
 type InboxSidebarProps = {
   inboxes: InboxSummary[];
   selectedInboxId: string | null;
   onSelectInbox: (inboxId: string) => void;
+  currentUser?: RailUser;
+  onSignOut?: () => void;
 };
 
 /** First column: 48px utility rail + fluid inbox navigation (224–248px total). */
-export function InboxSidebar({ inboxes, selectedInboxId, onSelectInbox }: InboxSidebarProps) {
+export function InboxSidebar({
+  inboxes,
+  selectedInboxId,
+  onSelectInbox,
+  currentUser,
+  onSignOut,
+}: InboxSidebarProps) {
   return (
     <div className="flex h-full shrink-0">
-      <SidebarRail />
+      <SidebarRail user={currentUser} onSignOut={onSignOut} />
       <div className="flex w-[clamp(176px,13vw,200px)] flex-col overflow-y-auto bg-(--inbox-nav)">
         <div className="flex flex-col gap-3 p-3">
           <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-(--inbox-border) bg-(--inbox-surface) p-2">
