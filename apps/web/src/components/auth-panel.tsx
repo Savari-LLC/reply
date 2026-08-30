@@ -14,8 +14,10 @@ import { Input } from "@reply/ui/components/input";
 import { Label } from "@reply/ui/components/label";
 import { Separator } from "@reply/ui/components/separator";
 import { Spinner } from "@reply/ui/components/spinner";
-import { ArrowRight, CircleAlert, LockKeyhole, MessageSquareText } from "lucide-react";
+import { ArrowRight, CircleAlert, LockKeyhole } from "lucide-react";
 import { useState, type FormEvent } from "react";
+
+import { ReplyLogoFull } from "@/components/reply-logo";
 
 const oauthErrorMessages: Record<OauthFlowErrorCode, string> = {
   access_denied: "Google sign-in was cancelled.",
@@ -35,34 +37,28 @@ export function AuthPanel({ invited = false }: { invited?: boolean }) {
 
   return (
     <main className="grid min-h-svh bg-[#eef0ec] lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="relative hidden overflow-hidden bg-[#202d2a] p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="absolute -top-32 -right-28 size-96 rounded-full bg-[#ff7a66]/15 blur-3xl" />
+      <section className="relative hidden overflow-hidden bg-[#0d9488] bg-linear-to-br from-[#043f38] via-[#0b7268] to-[#0d9488] p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute -top-32 -right-28 size-96 rounded-full bg-[#2dd4bf]/25 blur-3xl" />
         <div className="absolute -bottom-32 -left-24 size-80 rounded-full bg-[#f7c95c]/10 blur-3xl" />
-        <div className="relative flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-[#ff7a66] shadow-lg shadow-black/10">
-            <MessageSquareText className="size-5" strokeWidth={2.5} aria-hidden="true" />
-          </div>
-          <span className="text-lg font-bold tracking-[-0.04em]">reply</span>
+        <div className="relative">
+          <ReplyLogoFull className="h-9 w-auto text-white" />
         </div>
         <div className="relative max-w-xl">
           <p className="mb-5 text-xs font-semibold tracking-[0.16em] text-[#f7c95c] uppercase">Your focused communication workspace</p>
           <h1 className="text-5xl font-bold leading-[1.02] tracking-[-0.055em] xl:text-6xl">
             Turn context into a thoughtful reply.
           </h1>
-          <p className="mt-6 max-w-lg text-sm leading-7 text-white/60">
+          <p className="mt-6 max-w-lg text-sm leading-7 text-white/75">
             Bring the right company context into every conversation and move from research to a polished response without losing your voice.
           </p>
         </div>
-        <p className="relative text-xs text-white/35">Secure authentication powered by Convex Auth v2</p>
+        <p className="relative text-xs text-white/50">Secure authentication powered by Convex Auth v2</p>
       </section>
 
       <section className="flex items-center justify-center px-4 py-8 sm:px-8 lg:px-12">
         <div className="w-full max-w-md rounded-[28px] border border-white/80 bg-[#fbfbf8] p-5 shadow-[0_28px_90px_rgba(32,45,42,0.13)] sm:p-8">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-[#ff7a66] text-white">
-              <MessageSquareText className="size-[18px]" strokeWidth={2.5} aria-hidden="true" />
-            </div>
-            <span className="text-[17px] font-bold tracking-[-0.04em]">reply</span>
+          <div className="mb-8 lg:hidden">
+            <ReplyLogoFull className="h-8 w-auto text-[#0d9488]" />
           </div>
 
           <div>
@@ -252,7 +248,7 @@ function PasswordForm({ mode }: { mode: PasswordMode }) {
         </Alert>
       ) : null}
 
-      <Button type="submit" size="lg" className="h-11 w-full rounded-xl! bg-[#202d2a] text-sm hover:bg-[#30423e]" disabled={pending}>
+      <Button type="submit" size="lg" className="h-11 w-full rounded-xl! bg-[#0d9488] text-sm hover:bg-[#0b7268]" disabled={pending}>
         {pending ? <Spinner /> : null}
         {pending ? (mode === "sign-in" ? "Signing in…" : "Creating account…") : mode === "sign-in" ? "Sign in" : "Create account"}
         {!pending ? <ArrowRight aria-hidden="true" /> : null}

@@ -64,7 +64,7 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers, works
   }, [controller, state.selectedThreadId]);
 
   return (
-    <main className="inbox-root flex h-svh min-h-[600px] w-full min-w-[1024px] bg-(--inbox-canvas) font-sans text-sm antialiased">
+    <main className="inbox-root flex h-svh w-full min-w-[1024px] overflow-hidden bg-(--inbox-canvas) font-sans text-sm antialiased">
       <InboxSidebar
         inboxes={state.inboxes}
         selectedInboxId={state.selectedInboxId}
