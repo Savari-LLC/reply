@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type {
   CommentDraft,
+  CopilotMode,
   OperationKey,
   OperationState,
   Teammate,
@@ -26,7 +27,7 @@ export type WorkspaceActions = {
   setUnread: (unread: boolean) => Promise<void>;
   setPriority: (priority: ThreadPriority) => Promise<void>;
   setLabels: (labelIds: string[]) => Promise<void>;
-  generateDraft: (currentDraft?: string) => Promise<string>;
+  generateDraft: (currentDraft?: string, mode?: CopilotMode) => Promise<string>;
   sendReply: (body: string, bodyHtml?: string) => Promise<void>;
   addComment: (draft: CommentDraft) => Promise<void>;
   retry: () => Promise<void>;

@@ -5,7 +5,7 @@ import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, internalMutation, internalQuery, query } from "./_generated/server";
-import { requireCurrentUser, requireIdentity } from "./authHelpers";
+import { getActiveMembership, requireCurrentUser, requireIdentity } from "./authHelpers";
 import { ensurePersonalInbox, grantAllSharedInboxes } from "./lib/access";
 
 const invitationRateLimiter = new RateLimiter(components.rateLimiter, {
@@ -106,10 +106,7 @@ export const getInviteContext = internalQuery({
     if (userId === null) {
       throw new Error("Your account could not be found");
     }
-    const membership = await ctx.db
-      .query("memberships")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
+    const membership = await getActiveMembership(ctx, userId);
     if (membership === null || membership.role !== "admin") {
       throw new Error("Only a workspace admin can invite members");
     }
@@ -144,13 +141,11 @@ export const prepare = internalMutation({
     }
     const membership = await ctx.db
       .query("memberships")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("userId", user._id),
+      )
       .unique();
-    if (
-      membership === null ||
-      membership.role !== "admin" ||
-      membership.workspaceId !== args.workspaceId
-    ) {
+    if (membership === null || membership.role !== "admin") {
       throw new Error("Only a workspace admin can invite members");
     }
     const workspace = await ctx.db.get(args.workspaceId);
@@ -284,10 +279,7 @@ export const listCurrent = query({
   returns: v.array(invitationListItemValidator),
   handler: async (ctx) => {
     const user = await requireCurrentUser(ctx);
-    const membership = await ctx.db
-      .query("memberships")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .unique();
+    const membership = await getActiveMembership(ctx, user._id);
     if (membership === null || membership.role !== "admin") {
       return [];
     }
@@ -359,19 +351,22 @@ export const acceptPrepared = internalMutation({
     }
     const existingMembership = await ctx.db
       .query("memberships")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", workspace._id).eq("userId", user._id),
+      )
       .unique();
-    if (existingMembership !== null && existingMembership.workspaceId !== workspace._id) {
-      throw new Error("Your account already belongs to another workspace");
-    }
     if (existingMembership === null) {
       await ctx.db.insert("memberships", {
         workspaceId: workspace._id,
         userId: user._id,
         role: "member",
+        activeAt: Date.now(),
       });
       await ensurePersonalInbox(ctx, workspace._id, user._id);
       await grantAllSharedInboxes(ctx, workspace._id, user._id);
+    } else {
+      // Accepting an invite to a workspace you already belong to switches you into it.
+      await ctx.db.patch(existingMembership._id, { activeAt: Date.now() });
     }
     if (user.authProvider === "password" && user.email === undefined) {
       await ctx.db.patch(user._id, { email: invitation.email });

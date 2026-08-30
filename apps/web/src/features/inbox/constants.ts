@@ -1,4 +1,10 @@
-import type { LabelAccent, OperationKey, OperationState, ThreadStatus } from "./types";
+import type {
+  InboxView,
+  LabelAccent,
+  OperationKey,
+  OperationState,
+  ThreadStatus,
+} from "./types";
 
 /** Thread-list filter tabs. `all` is UI-only; the rest map to backend statuses. */
 export const THREAD_FILTERS = ["all", "open", "waiting", "closed"] as const;
@@ -16,6 +22,15 @@ export const FILTER_LABELS: Record<ThreadFilter, string> = {
   open: "Open",
   waiting: "Waiting",
   closed: "Done",
+};
+
+/** Sidebar view labels; "all" renders as the inbox name itself. */
+export const INBOX_VIEW_LABELS: Record<Exclude<InboxView, "all">, string> = {
+  open: "Open",
+  assigned: "Assigned",
+  done: "Done",
+  mentions: "Mentions",
+  sent: "Sent",
 };
 
 /** Decorative category accents from the Figma palette. Always paired with a text label. */
@@ -55,6 +70,7 @@ export const TOAST_IDS = {
   priority: "inbox-priority",
   labels: "inbox-labels",
   simulate: "inbox-simulate",
+  workspace: "inbox-workspace",
 } as const;
 
 /** Deterministic fixture scenarios, selectable via `?scenario=` in development. */

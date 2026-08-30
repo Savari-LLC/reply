@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ConversationWorkspace, type WorkspaceActions } from "./components/conversation-workspace";
 import { InboxShellSkeleton } from "./components/inbox-shell-skeleton";
@@ -6,7 +6,8 @@ import { InboxSidebar } from "./components/inbox-sidebar";
 import { ScreenErrorState } from "./components/screen-error-state";
 import type { RailUser } from "./components/sidebar-rail";
 import { ThreadList } from "./components/thread-list";
-import type { ThreadFilter } from "./constants";
+import type { WorkspaceSwitcherData } from "./components/workspace-switcher";
+import { INBOX_VIEW_LABELS, type ThreadFilter } from "./constants";
 import type { InboxController } from "./model";
 import type { ThreadViewer } from "./types";
 import { filterThreads } from "./utils";
@@ -21,6 +22,8 @@ type InboxScreenProps = {
   /** Teammates currently viewing the selected thread (live presence). */
   viewers?: ThreadViewer[];
   liveEmail?: boolean;
+  /** Workspace name + switcher shown at the top of the sidebar. */
+  workspace?: WorkspaceSwitcherData;
 };
 
 /**
@@ -33,6 +36,7 @@ export function InboxScreen({
   onSignOut,
   viewers,
   liveEmail = false,
+  workspace,
 }: InboxScreenProps) {
   const { state } = controller;
   const [filter, setFilter] = useState<ThreadFilter>("all");
@@ -45,8 +49,23 @@ export function InboxScreen({
     if (viaKeyboard) setHeadingFocusToken((token) => token + 1);
   };
 
+  // Changing inbox or sidebar view resets the status tabs so a stale tab
+  // never hides the freshly scoped list.
+  useEffect(() => {
+    setFilter("all");
+  }, [state.selectedInboxId, state.selectedView]);
+
   const selectedInbox = state.inboxes.find((inbox) => inbox.id === state.selectedInboxId) ?? null;
   const visibleThreads = useMemo(() => filterThreads(state.threads, filter), [state.threads, filter]);
+
+  // Mentions and Sent span every inbox, so they replace the inbox title;
+  // scoped views read as "Sales · Open".
+  const isWorkspaceView = state.selectedView === "mentions" || state.selectedView === "sent";
+  const listTitle = isWorkspaceView
+    ? INBOX_VIEW_LABELS[state.selectedView as "mentions" | "sent"]
+    : state.selectedView === "all"
+      ? (selectedInbox?.name ?? "Inbox")
+      : `${selectedInbox?.name ?? "Inbox"} · ${INBOX_VIEW_LABELS[state.selectedView]}`;
 
   const workspaceActions = useMemo<WorkspaceActions>(() => {
     const threadId = state.selectedThreadId;
@@ -60,7 +79,8 @@ export function InboxScreen({
       setUnread: (unread) => controller.setUnread(requireThread(), unread),
       setPriority: (priority) => controller.setPriority(requireThread(), priority),
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
-      generateDraft: (currentDraft) => controller.generateDraft(requireThread(), currentDraft),
+      generateDraft: (currentDraft, mode) =>
+        controller.generateDraft(requireThread(), currentDraft, mode),
       sendReply: (body, bodyHtml) => controller.sendReply(requireThread(), body, bodyHtml),
       addComment: (draft) => controller.addComment(requireThread(), draft),
       retry: () => controller.retryLoad("thread"),
@@ -72,10 +92,12 @@ export function InboxScreen({
       <InboxSidebar
         inboxes={state.inboxes}
         selectedInboxId={state.selectedInboxId}
+        selectedView={state.selectedView}
         onSelectInbox={controller.selectInbox}
         currentUser={currentUser}
         onSignOut={onSignOut}
         liveEmail={liveEmail}
+        workspace={workspace}
       />
       <div className="flex min-w-0 flex-1 py-3 pr-3">
         <div className="flex min-w-0 flex-1 overflow-hidden rounded-xl bg-(--inbox-surface)">
@@ -89,10 +111,12 @@ export function InboxScreen({
           ) : (
             <>
               <ThreadList
-                inboxName={selectedInbox?.name ?? "Inbox"}
+                inboxName={listTitle}
                 threads={visibleThreads}
                 hasAnyThreads={state.threads.length > 0}
-                showConnectHint={selectedInbox ? !selectedInbox.hasChannel : false}
+                showConnectHint={
+                  selectedInbox && !isWorkspaceView ? !selectedInbox.hasChannel : false
+                }
                 teammates={state.teammates}
                 selectedThreadId={state.selectedThreadId}
                 status={state.listStatus}
@@ -103,7 +127,7 @@ export function InboxScreen({
                 onClearFilters={() => setFilter("all")}
                 onRetry={() => controller.retryLoad("list")}
                 onSimulateEmail={
-                  state.selectedInboxId
+                  state.selectedInboxId && !isWorkspaceView
                     ? () =>
                         void controller
                           .simulateEmail(state.selectedInboxId!)

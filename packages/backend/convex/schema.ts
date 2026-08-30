@@ -43,6 +43,9 @@ export default defineSchema({
     workspaceId: v.id("workspaces"),
     userId: v.id("users"),
     role: v.union(v.literal("admin"), v.literal("member")),
+    // When this membership was last made the user's active workspace; the
+    // highest value wins. Rows predating multi-workspace have none.
+    activeAt: v.optional(v.number()),
   })
     .index("by_workspaceId_and_userId", ["workspaceId", "userId"])
     .index("by_workspaceId", ["workspaceId"])
@@ -166,7 +169,9 @@ export default defineSchema({
     sentAt: v.number(),
   })
     .index("by_threadId_and_sentAt", ["threadId", "sentAt"])
-    .index("by_threadId_and_externalMessageId", ["threadId", "externalMessageId"]),
+    .index("by_threadId_and_externalMessageId", ["threadId", "externalMessageId"])
+    // Powers the personal "Sent" view: replies authored by one member.
+    .index("by_workspaceId_and_authorId", ["workspaceId", "authorId"]),
 
   // Per-user unread state, scoped for workspace unread counts.
   threadReads: defineTable({
