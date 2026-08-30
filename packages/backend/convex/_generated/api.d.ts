@@ -11,7 +11,9 @@
 import type * as auth from "../auth.js";
 import type * as authHelpers from "../authHelpers.js";
 import type * as channels from "../channels.js";
+import type * as companyContext from "../companyContext.js";
 import type * as contextPreview from "../contextPreview.js";
+import type * as copilot from "../copilot.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as inbox from "../inbox.js";
 import type * as inboxes from "../inboxes.js";
@@ -23,6 +25,7 @@ import type * as lib_providers from "../lib/providers.js";
 import type * as members from "../members.js";
 import type * as presence from "../presence.js";
 import type * as seed from "../seed.js";
+import type * as simulate from "../simulate.js";
 import type * as users from "../users.js";
 import type * as workspaces from "../workspaces.js";
 
@@ -36,7 +39,9 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authHelpers: typeof authHelpers;
   channels: typeof channels;
+  companyContext: typeof companyContext;
   contextPreview: typeof contextPreview;
+  copilot: typeof copilot;
   healthCheck: typeof healthCheck;
   inbox: typeof inbox;
   inboxes: typeof inboxes;
@@ -48,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   members: typeof members;
   presence: typeof presence;
   seed: typeof seed;
+  simulate: typeof simulate;
   users: typeof users;
   workspaces: typeof workspaces;
 }>;

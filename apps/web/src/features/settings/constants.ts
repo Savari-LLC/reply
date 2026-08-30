@@ -13,14 +13,6 @@ export const SECTION_DESCRIPTIONS: Record<SettingsSection, string> = {
     "Create inboxes, connect the channels that feed them, and choose who can work in each one.",
 };
 
-export type SampleDataset = "sales" | "accounts" | "support";
-
-export const DATASET_OPTIONS: Array<{ value: SampleDataset; label: string }> = [
-  { value: "sales", label: "Sales conversations" },
-  { value: "accounts", label: "Accounts conversations" },
-  { value: "support", label: "Support conversations" },
-];
-
 /** Convex throws plain errors; strip the wrapper so toasts read like copy. */
 export function errorMessage(error: unknown) {
   return error instanceof Error

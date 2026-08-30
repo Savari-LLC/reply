@@ -53,8 +53,9 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
       setUnread: (unread) => controller.setUnread(requireThread(), unread),
       setPriority: (priority) => controller.setPriority(requireThread(), priority),
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
-      generateDraft: () => controller.generateDraft(requireThread()),
+      generateDraft: (currentDraft) => controller.generateDraft(requireThread(), currentDraft),
       sendReply: (body, bodyHtml) => controller.sendReply(requireThread(), body, bodyHtml),
+      addComment: (draft) => controller.addComment(requireThread(), draft),
       retry: () => controller.retryLoad("thread"),
     };
   }, [controller, state.selectedThreadId]);
@@ -93,6 +94,15 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
                 onSelectThread={handleSelectThread}
                 onClearFilters={() => setFilter("all")}
                 onRetry={() => controller.retryLoad("list")}
+                onSimulateEmail={
+                  state.selectedInboxId
+                    ? () =>
+                        void controller
+                          .simulateEmail(state.selectedInboxId!)
+                          .catch(() => undefined)
+                    : undefined
+                }
+                simulateState={state.operations.simulate}
               />
               <ConversationWorkspace
                 detail={state.selectedThread}

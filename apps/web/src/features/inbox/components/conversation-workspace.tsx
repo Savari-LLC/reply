@@ -4,6 +4,7 @@ import { MailOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type {
+  CommentDraft,
   OperationKey,
   OperationState,
   Teammate,
@@ -25,8 +26,9 @@ export type WorkspaceActions = {
   setUnread: (unread: boolean) => Promise<void>;
   setPriority: (priority: ThreadPriority) => Promise<void>;
   setLabels: (labelIds: string[]) => Promise<void>;
-  generateDraft: () => Promise<string>;
+  generateDraft: (currentDraft?: string) => Promise<string>;
   sendReply: (body: string, bodyHtml?: string) => Promise<void>;
+  addComment: (draft: CommentDraft) => Promise<void>;
   retry: () => Promise<void>;
 };
 
@@ -155,6 +157,9 @@ export function ConversationWorkspace({
     );
   }
 
+  const companyStatus =
+    detail.companyStatus ?? (detail.company ? "ready" : "unavailable");
+
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Conversation">
       <ConversationHeader
@@ -174,23 +179,34 @@ export function ConversationWorkspace({
           <MessageTimeline
             threadId={detail.thread.id}
             messages={detail.messages}
+            comments={detail.comments}
             onReply={() => setComposerExpanded(true)}
+            companyChip={{
+              status: companyStatus,
+              name: detail.company?.name ?? detail.thread.companyName,
+              logoUrl: detail.company?.logoUrl,
+              onOpen: () => setPanelOpen(true),
+            }}
           />
           {/* Keyed so a thread switch resets the local draft text. */}
           <ReplyComposer
             key={detail.thread.id}
             thread={detail.thread}
+            teammates={teammates}
             draftState={operations.draft}
             sendState={operations.send}
+            commentState={operations.comment}
             expanded={composerExpanded}
             onExpandedChange={setComposerExpanded}
             onGenerateDraft={actions.generateDraft}
             onSendReply={actions.sendReply}
+            onAddComment={actions.addComment}
           />
         </div>
         {panelOpen ? (
           <CompanyProfilePanel
             company={detail.company}
+            status={companyStatus}
             thread={detail.thread}
             onClose={closePanel}
           />
