@@ -31,6 +31,13 @@ export function formatDateSeparator(timestamp: number): string {
   });
 }
 
+/** "1.2 MB" / "480 KB" labels for attachment chips. */
+export function formatFileSize(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 export function filterThreads(threads: ThreadSummary[], filter: ThreadFilter): ThreadSummary[] {
   if (filter === "all") return threads;
   return threads.filter((thread) => thread.status === filter);

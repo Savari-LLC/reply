@@ -11,13 +11,6 @@ import {
 } from "@reply/ui/components/dialog";
 import { Input } from "@reply/ui/components/input";
 import { Label } from "@reply/ui/components/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@reply/ui/components/select";
 import { Spinner } from "@reply/ui/components/spinner";
 import { useAction, useMutation } from "convex/react";
 import { ArrowLeft, ChevronRight, Plug, ShieldCheck } from "lucide-react";
@@ -29,12 +22,12 @@ import {
   providerMeta,
   type ChannelProvider,
 } from "./channel-providers";
-import { DATASET_OPTIONS, errorMessage, type SampleDataset } from "./constants";
+import { errorMessage } from "./constants";
 
 /**
  * Connecting a channel is how an inbox starts receiving conversations: pick the
  * provider, then authorize the account on that provider's side. Email providers
- * use OAuth; messaging providers are backed by sample data for now.
+ * use OAuth; messaging providers use the simulated incoming-message path.
  */
 export function ConnectChannelDialog({
   inbox,
@@ -48,13 +41,11 @@ export function ConnectChannelDialog({
   const [open, setOpen] = useState(false);
   const [provider, setProvider] = useState<ChannelProvider | null>(null);
   const [address, setAddress] = useState("");
-  const [dataset, setDataset] = useState<SampleDataset>("sales");
   const [pending, setPending] = useState(false);
 
   const reset = () => {
     setProvider(null);
     setAddress("");
-    setDataset("sales");
   };
 
   const onOpenChange = (next: boolean) => {
@@ -71,7 +62,7 @@ export function ConnectChannelDialog({
         const result = await startOauth({ inboxId: inbox._id, provider });
         window.location.assign(result.url);
       } else {
-        await connect({ inboxId: inbox._id, provider, address, dataset });
+        await connect({ inboxId: inbox._id, provider, address });
         toast.success(`${providerMeta(provider).label} connected to ${inbox.name}`);
         onOpenChange(false);
       }
@@ -171,50 +162,28 @@ export function ConnectChannelDialog({
             </div>
 
             {!isEmailProvider ? (
-              <>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="connect-channel-address">{meta.addressLabel}</Label>
-                  <Input
-                    id="connect-channel-address"
-                    value={address}
-                    disabled={pending}
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="off"
-                    placeholder={meta.addressPlaceholder}
-                    autoFocus
-                    required
-                    onChange={(event) => setAddress(event.target.value)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="connect-channel-dataset">Conversations to import</Label>
-                  <Select
-                    value={dataset}
-                    disabled={pending}
-                    onValueChange={(value) => setDataset(value as SampleDataset)}
-                  >
-                    <SelectTrigger id="connect-channel-dataset" className="w-full rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DATASET_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="connect-channel-address">{meta.addressLabel}</Label>
+                <Input
+                  id="connect-channel-address"
+                  value={address}
+                  disabled={pending}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="off"
+                  placeholder={meta.addressPlaceholder}
+                  autoFocus
+                  required
+                  onChange={(event) => setAddress(event.target.value)}
+                />
+              </div>
             ) : null}
 
             <p className="flex items-start gap-2 rounded-lg bg-(--inbox-hover) px-3 py-2.5 text-xs leading-5 text-(--inbox-text-muted)">
               <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               {isEmailProvider
                 ? `You will continue to ${provider === "gmail" ? "Google" : "Microsoft"} to grant read-only mailbox access. Reply never sends mail automatically.`
-                : `${meta.label} authorization is simulated in this preview. Reply imports the sample conversations above so you can work the inbox straight away.`}
+                : `${meta.label} authorization is simulated in this preview. The channel starts empty — use Simulate in the inbox to deliver incoming messages enriched with live company context.`}
             </p>
 
             <Button

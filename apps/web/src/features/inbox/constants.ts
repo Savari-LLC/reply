@@ -37,6 +37,8 @@ export const OPERATION_KEYS: OperationKey[] = [
   "labels",
   "draft",
   "send",
+  "comment",
+  "simulate",
 ];
 
 export const INITIAL_OPERATIONS = Object.fromEntries(
@@ -46,11 +48,13 @@ export const INITIAL_OPERATIONS = Object.fromEntries(
 /** Stable toast ids so repeated requests never stack duplicates. */
 export const TOAST_IDS = {
   send: "inbox-send",
+  comment: "inbox-comment",
   status: "inbox-status",
   assign: "inbox-assign",
   unread: "inbox-unread",
   priority: "inbox-priority",
   labels: "inbox-labels",
+  simulate: "inbox-simulate",
 } as const;
 
 /** Deterministic fixture scenarios, selectable via `?scenario=` in development. */

@@ -1,7 +1,8 @@
-import { ListFilter } from "lucide-react";
+import { Spinner } from "@reply/ui/components/spinner";
+import { ListFilter, MailPlus } from "lucide-react";
 
 import { FILTER_LABELS, THREAD_FILTERS, type ThreadFilter } from "../constants";
-import type { ListStatus, Teammate, ThreadSummary } from "../types";
+import type { ListStatus, OperationState, Teammate, ThreadSummary } from "../types";
 import {
   ThreadListEmptyFilter,
   ThreadListEmptyInbox,
@@ -27,11 +28,24 @@ export type ThreadListProps = {
   onSelectThread: (threadId: string, viaKeyboard: boolean) => void;
   onClearFilters: () => void;
   onRetry: () => Promise<void>;
+  /** Demo control: delivers a synthetic email from a real company domain. */
+  onSimulateEmail?: () => void;
+  simulateState?: OperationState;
 };
 
 /** Second column: thread list with filter tabs and pane-local list states. */
 export function ThreadList(props: ThreadListProps) {
-  const { inboxName, threads, status, filter, onFilterChange, selectedThreadId } = props;
+  const {
+    inboxName,
+    threads,
+    status,
+    filter,
+    onFilterChange,
+    selectedThreadId,
+    onSimulateEmail,
+    simulateState,
+  } = props;
+  const simulating = simulateState?.status === "loading";
 
   return (
     <section
@@ -43,6 +57,23 @@ export function ThreadList(props: ThreadListProps) {
           <h1 className="min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
             {inboxName}
           </h1>
+          {onSimulateEmail ? (
+            <button
+              type="button"
+              onClick={onSimulateEmail}
+              disabled={simulating}
+              title="Simulate an incoming email"
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) px-2.5 text-xs font-medium tracking-[-0.1px] text-(--inbox-text) outline-none transition-colors hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:pointer-events-none disabled:opacity-60"
+            >
+              {simulating ? (
+                <Spinner className="size-3.5" />
+              ) : (
+                <MailPlus className="size-3.5" aria-hidden />
+              )}
+              Simulate
+              <span className="sr-only"> an incoming email</span>
+            </button>
+          ) : null}
           <button
             type="button"
             aria-label="Filter conversations"
@@ -70,7 +101,7 @@ export function ThreadList(props: ThreadListProps) {
           ))}
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <div className="inbox-scrollbar-none min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <ThreadListBody {...props} />
       </div>
       {status === "ready" && threads.length > 0 ? (

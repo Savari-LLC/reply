@@ -53,14 +53,15 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
       setUnread: (unread) => controller.setUnread(requireThread(), unread),
       setPriority: (priority) => controller.setPriority(requireThread(), priority),
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
-      generateDraft: () => controller.generateDraft(requireThread()),
+      generateDraft: (currentDraft) => controller.generateDraft(requireThread(), currentDraft),
       sendReply: (body, bodyHtml) => controller.sendReply(requireThread(), body, bodyHtml),
+      addComment: (draft) => controller.addComment(requireThread(), draft),
       retry: () => controller.retryLoad("thread"),
     };
   }, [controller, state.selectedThreadId]);
 
   return (
-    <main className="inbox-root flex h-svh min-h-[600px] w-full min-w-[1024px] bg-(--inbox-canvas) font-sans text-sm antialiased">
+    <main className="inbox-root flex h-svh w-full min-w-[1024px] overflow-hidden bg-(--inbox-canvas) font-sans text-sm antialiased">
       <InboxSidebar
         inboxes={state.inboxes}
         selectedInboxId={state.selectedInboxId}
@@ -93,6 +94,15 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
                 onSelectThread={handleSelectThread}
                 onClearFilters={() => setFilter("all")}
                 onRetry={() => controller.retryLoad("list")}
+                onSimulateEmail={
+                  state.selectedInboxId
+                    ? () =>
+                        void controller
+                          .simulateEmail(state.selectedInboxId!)
+                          .catch(() => undefined)
+                    : undefined
+                }
+                simulateState={state.operations.simulate}
               />
               <ConversationWorkspace
                 detail={state.selectedThread}

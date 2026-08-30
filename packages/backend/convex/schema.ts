@@ -187,6 +187,17 @@ export default defineSchema({
     threadId: v.id("threads"),
     authorId: v.id("users"),
     body: v.string(),
+    // Small bounded list of teammate-uploaded files shown with the comment.
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          name: v.string(),
+          size: v.number(),
+          type: v.string(),
+        }),
+      ),
+    ),
   }).index("by_threadId", ["threadId"]),
 
   mentions: defineTable({
@@ -222,6 +233,12 @@ export default defineSchema({
     logoUrl: v.optional(v.string()),
     industry: v.optional(v.string()),
     website: v.optional(v.string()),
+    slogan: v.optional(v.string()),
+    primaryColor: v.optional(v.string()),
+    location: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    socials: v.optional(v.array(v.object({ type: v.string(), url: v.string() }))),
     fetchedAt: v.number(),
   }).index("by_workspaceId_and_domain", ["workspaceId", "domain"]),
 
