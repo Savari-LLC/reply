@@ -1,9 +1,15 @@
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@reply/backend/convex/_generated/api";
 import { Badge } from "@reply/ui/components/badge";
+import { Button } from "@reply/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@reply/ui/components/card";
 import { Separator } from "@reply/ui/components/separator";
+import { Spinner } from "@reply/ui/components/spinner";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { useState } from "react";
+
+import { AuthPanel } from "../components/auth-panel";
 import {
   Bot,
   Boxes,
@@ -11,19 +17,20 @@ import {
   Database,
   Fingerprint,
   Layers3,
+  LogOut,
   MessageSquareText,
   Palette,
   Sparkles,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
-  component: StarterHome,
+  component: HomeRoute,
 });
 
 const stack = [
   { icon: Layers3, name: "TanStack Start", detail: "React 19, Router, SSR, and Vite" },
   { icon: Database, name: "Convex", detail: "Cloud deployment and generated client" },
-  { icon: Fingerprint, name: "Convex Auth v2", detail: "Alpha component and signing keys ready" },
+  { icon: Fingerprint, name: "Convex Auth v2", detail: "Google and password sign-in enabled" },
   { icon: Bot, name: "AI Gateway", detail: "Provider and Agent component installed" },
   { icon: Sparkles, name: "Context.dev", detail: "Official Convex component mounted" },
   { icon: Palette, name: "shadcn/ui", detail: "Shared stable component library installed" },
@@ -38,8 +45,29 @@ const tomorrow = [
   "Rehearse, record a backup, and stop adding scope",
 ];
 
+function HomeRoute() {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-svh items-center justify-center bg-[#eef0ec]" aria-live="polite">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/80 bg-[#fbfbf8] px-5 py-4 text-sm font-medium text-[#202d2a] shadow-lg shadow-[#202d2a]/5">
+          <Spinner />
+          Restoring your session…
+        </div>
+      </main>
+    );
+  }
+
+  return isAuthenticated ? <StarterHome /> : <AuthPanel />;
+}
+
 function StarterHome() {
   const health = useQuery(api.healthCheck.get);
+  const user = useQuery(api.users.getCurrent);
+  const { signOut } = useAuthActions();
+  const [signingOut, setSigningOut] = useState(false);
+  const accountName = user?.authProvider === "google" ? user.name ?? user.email : user?.username;
 
   return (
     <main className="min-h-svh bg-[#eef0ec] px-4 py-5 sm:px-6 sm:py-8">
@@ -55,10 +83,32 @@ function StarterHome() {
               <p className="text-[10px] text-muted-foreground">Hackathon starter</p>
             </div>
           </div>
-          <Badge variant="outline" className="gap-1.5 rounded-full! border-[#d6e4d8] bg-[#f2f8f3] px-3 py-1 text-[10px] text-[#3f6d48]">
-            <span className="size-1.5 rounded-full bg-[#55a667]" />
-            {health === "OK" ? "Convex connected" : "Connecting"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="hidden gap-1.5 rounded-full! border-[#d6e4d8] bg-[#f2f8f3] px-3 py-1 text-[10px] text-[#3f6d48] sm:flex">
+              <span className="size-1.5 rounded-full bg-[#55a667]" />
+              {health === "OK" ? "Convex connected" : "Connecting"}
+            </Badge>
+            <span className="hidden max-w-40 truncate text-[11px] font-medium text-muted-foreground md:block">{accountName ?? "Signed in"}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg! bg-white"
+              disabled={signingOut}
+              onClick={async () => {
+                setSigningOut(true);
+                try {
+                  await signOut();
+                } finally {
+                  setSigningOut(false);
+                }
+              }}
+            >
+              {signingOut ? <Spinner /> : <LogOut aria-hidden="true" />}
+              <span className="hidden sm:inline">Sign out</span>
+              <span className="sr-only sm:hidden">Sign out</span>
+            </Button>
+          </div>
         </header>
 
         <section className="grid gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[1.1fr_0.9fr] lg:px-14 lg:py-20">
