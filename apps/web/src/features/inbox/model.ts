@@ -7,7 +7,13 @@
  * fixture imports.
  */
 
-import type { CommentDraft, InboxScreenState, ThreadPriority, ThreadStatus } from "./types";
+import type {
+  CommentDraft,
+  CopilotMode,
+  InboxScreenState,
+  ThreadPriority,
+  ThreadStatus,
+} from "./types";
 
 export type LoadScope = "screen" | "list" | "thread";
 
@@ -20,8 +26,12 @@ export type InboxController = {
   setUnread: (threadId: string, unread: boolean) => Promise<void>;
   setPriority: (threadId: string, priority: ThreadPriority) => Promise<void>;
   setLabels: (threadId: string, labels: string[]) => Promise<void>;
-  /** Copilot draft; `currentDraft` is the operator's in-progress text to refine. */
-  generateDraft: (threadId: string, currentDraft?: string) => Promise<string>;
+  /**
+   * Copilot writing assistance. `currentDraft` is the operator's in-progress
+   * text; `mode` picks drafting from scratch, grammar fixes, or improving the
+   * writing (defaults to "draft").
+   */
+  generateDraft: (threadId: string, currentDraft?: string, mode?: CopilotMode) => Promise<string>;
   sendReply: (threadId: string, body: string, bodyHtml?: string) => Promise<void>;
   /** Post an internal comment on the thread (never emailed to the customer). */
   addComment: (threadId: string, draft: CommentDraft) => Promise<void>;

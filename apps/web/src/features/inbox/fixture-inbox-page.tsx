@@ -14,6 +14,7 @@ import { InboxScreen } from "./inbox-screen";
 import type { InboxController, LoadScope } from "./model";
 import type {
   CommentDraft,
+  CopilotMode,
   InboxScreenState,
   Message,
   OperationKey,
@@ -295,7 +296,11 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
         { toastId: TOAST_IDS.labels },
       );
 
-    const generateDraft = async (threadId: string) => {
+    const generateDraft = async (
+      threadId: string,
+      currentDraft?: string,
+      mode: CopilotMode = "draft",
+    ) => {
       setOperation("draft", "loading");
       await delay(DRAFT_DELAY_MS);
       if (scenario === "draft-error") {
@@ -303,6 +308,8 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
         throw new Error("draft failed");
       }
       setOperation("draft", "success");
+      // Grammar/improve act on the operator's text; the fixture just echoes it.
+      if (mode !== "draft" && currentDraft?.trim()) return currentDraft;
       return getFixtureDraft(threadId);
     };
 

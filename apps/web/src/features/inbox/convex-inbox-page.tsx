@@ -15,6 +15,7 @@ import type {
   AsyncStatus,
   CommentDraft,
   CompanyProfile,
+  CopilotMode,
   InboxScreenState,
   InboxSummary,
   LabelAccent,
@@ -467,12 +468,14 @@ export function ConvexInboxPage() {
     const generateDraft = async (
       threadId: string,
       currentDraft?: string,
+      mode?: CopilotMode,
     ): Promise<string> => {
       setOperation("draft", "loading");
       try {
         const draft = await generateDraftAction({
           threadId: threadId as Id<"threads">,
           currentDraft,
+          mode,
         });
         setOperation("draft", "success");
         return draft;

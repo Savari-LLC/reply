@@ -27,6 +27,9 @@ export type OperationState = {
   message?: string;
 };
 
+/** What the operator asked Copilot to do with the composer contents. */
+export type CopilotMode = "draft" | "grammar" | "improve";
+
 export type LabelAccent = "magenta" | "purple" | "amber" | "yellow" | "blue";
 
 export type ThreadLabel = {
