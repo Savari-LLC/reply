@@ -87,13 +87,22 @@ export function ConversationWorkspace({
         aria-busy="true"
         aria-label="Loading conversation"
       >
-        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-(--inbox-border-subtle) px-4">
-          <Skeleton className="size-8 rounded-full" />
-          <Skeleton className="h-5 w-48 rounded-md" />
-          <div className="ml-auto flex items-center gap-1.5">
-            <Skeleton className="h-8 w-28 rounded-lg" />
-            <Skeleton className="h-8 w-20 rounded-lg" />
-            <Skeleton className="size-8 rounded-lg" />
+        <div className="flex shrink-0 flex-col gap-2 border-b border-(--inbox-border-subtle) px-4 py-3">
+          <div className="flex h-8 items-center gap-2">
+            <Skeleton className="size-8 rounded-full" />
+            <Skeleton className="h-5 w-48 rounded-md" />
+            <div className="ml-auto flex items-center gap-1.5">
+              <Skeleton className="size-8 rounded-lg" />
+              <Skeleton className="size-8 rounded-lg" />
+            </div>
+          </div>
+          <div className="flex h-8 items-center gap-2">
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <div className="ml-auto flex items-center gap-1.5">
+              <Skeleton className="h-8 w-28 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+            </div>
           </div>
         </div>
         <div className="flex-1 space-y-4 p-4">

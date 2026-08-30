@@ -49,15 +49,19 @@ export function InboxShellSkeleton() {
 
 export function ThreadRowSkeleton() {
   return (
-    <div className="flex h-20 shrink-0 items-start gap-3 rounded-xl p-3">
+    <div className="flex shrink-0 items-start gap-3 rounded-xl p-3">
       <Skeleton className="size-8 shrink-0 rounded-full" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
           <Skeleton className="h-4 w-28 rounded-md" />
           <Skeleton className="h-3 w-10 rounded-md" />
         </div>
         <Skeleton className="h-4 w-40 rounded-md" />
         <Skeleton className="h-3 w-full max-w-52 rounded-md" />
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          <Skeleton className="h-4 w-24 rounded-full" />
+          <Skeleton className="size-5 rounded-full" />
+        </div>
       </div>
     </div>
   );
