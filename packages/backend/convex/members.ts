@@ -3,9 +3,8 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireWorkspaceAdmin, requireWorkspaceContext } from "./authHelpers";
-import { channelKind } from "./lib/access";
 import { avatarUrl, displayName } from "./lib/avatar";
-import { deleteChannelCascade, deleteInboxCascade } from "./lib/cascade";
+import { deleteInboxCascade } from "./lib/cascade";
 import { isSeedUser } from "./seed";
 
 const roleValidator = v.union(v.literal("admin"), v.literal("member"));
@@ -121,7 +120,8 @@ export const remove = mutation({
       await ctx.db.patch(thread._id, { assigneeId: undefined });
     }
 
-    // Their personal inbox and personal channels leave with them.
+    // Their personal inboxes leave with them, and so do the channels and
+    // conversations those inboxes own.
     const personalInboxes = await ctx.db
       .query("inboxes")
       .withIndex("by_workspaceId_and_ownerId", (q) =>
@@ -129,15 +129,6 @@ export const remove = mutation({
       )
       .collect();
     for (const inbox of personalInboxes) await deleteInboxCascade(ctx, inbox);
-    const channels = await ctx.db
-      .query("channels")
-      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", context.workspace._id))
-      .collect();
-    for (const channel of channels) {
-      if (channelKind(channel) === "personal" && channel.ownerId === args.userId) {
-        await deleteChannelCascade(ctx, channel);
-      }
-    }
 
     const grants = await ctx.db
       .query("inboxAccess")
@@ -146,13 +137,6 @@ export const remove = mutation({
       )
       .collect();
     for (const grant of grants) await ctx.db.delete(grant._id);
-    const channelGrants = await ctx.db
-      .query("channelAccess")
-      .withIndex("by_workspaceId_and_userId", (q) =>
-        q.eq("workspaceId", context.workspace._id).eq("userId", args.userId),
-      )
-      .collect();
-    for (const grant of channelGrants) await ctx.db.delete(grant._id);
 
     const reads = await ctx.db
       .query("threadReads")

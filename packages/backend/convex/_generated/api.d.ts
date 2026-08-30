@@ -19,6 +19,7 @@ import type * as invitations from "../invitations.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_avatar from "../lib/avatar.js";
 import type * as lib_cascade from "../lib/cascade.js";
+import type * as lib_providers from "../lib/providers.js";
 import type * as members from "../members.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   "lib/access": typeof lib_access;
   "lib/avatar": typeof lib_avatar;
   "lib/cascade": typeof lib_cascade;
+  "lib/providers": typeof lib_providers;
   members: typeof members;
   seed: typeof seed;
   users: typeof users;

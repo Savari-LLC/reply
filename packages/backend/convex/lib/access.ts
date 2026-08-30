@@ -39,42 +39,6 @@ export async function requireInboxAccess(
   return inbox;
 }
 
-/** Rows predating the `kind` field are shared channels. */
-export function channelKind(channel: Doc<"channels">): "shared" | "personal" {
-  return channel.kind ?? "shared";
-}
-
-/**
- * Whether a member may see and link a channel: owners for personal channels;
- * admins or members holding a `channelAccess` grant for shared channels.
- */
-export async function canUseChannel(
-  ctx: QueryCtx,
-  membership: Doc<"memberships">,
-  channel: Doc<"channels">,
-): Promise<boolean> {
-  if (channel.workspaceId !== membership.workspaceId) return false;
-  if (channelKind(channel) === "personal") return channel.ownerId === membership.userId;
-  if (membership.role === "admin") return true;
-  const grant = await ctx.db
-    .query("channelAccess")
-    .withIndex("by_channelId_and_userId", (q) =>
-      q.eq("channelId", channel._id).eq("userId", membership.userId),
-    )
-    .unique();
-  return grant !== null;
-}
-
-/** Managing (renaming, deleting, permissions) is owner/admin territory. */
-export function canManageChannel(
-  membership: Doc<"memberships">,
-  channel: Doc<"channels">,
-): boolean {
-  if (channel.workspaceId !== membership.workspaceId) return false;
-  if (channelKind(channel) === "personal") return channel.ownerId === membership.userId;
-  return membership.role === "admin";
-}
-
 /** Owners manage their personal inbox; admins manage shared inboxes. */
 export function canManageInbox(
   membership: Doc<"memberships">,
@@ -85,30 +49,31 @@ export function canManageInbox(
   return membership.role === "admin";
 }
 
-/** Channels linked into an inbox, in link order. */
-export async function getLinkedChannels(
+/**
+ * Managing a channel is managing the inbox that owns it. Returns the owning
+ * inbox so callers can report its name.
+ */
+export async function requireManageableChannelInbox(
+  ctx: QueryCtx,
+  membership: Doc<"memberships">,
+  channel: Doc<"channels">,
+): Promise<Doc<"inboxes">> {
+  const inbox = await ctx.db.get(channel.inboxId);
+  if (!inbox || !canManageInbox(membership, inbox)) {
+    throw new Error("Channel not found");
+  }
+  return inbox;
+}
+
+/** Channels connected to an inbox, in connection order. */
+export async function getInboxChannels(
   ctx: QueryCtx,
   inboxId: Id<"inboxes">,
 ): Promise<Doc<"channels">[]> {
-  const links = await ctx.db
-    .query("inboxChannels")
-    .withIndex("by_inboxId_and_channelId", (q) => q.eq("inboxId", inboxId))
+  return await ctx.db
+    .query("channels")
+    .withIndex("by_inboxId", (q) => q.eq("inboxId", inboxId))
     .collect();
-  const channels = await Promise.all(links.map((link) => ctx.db.get(link.channelId)));
-  return channels.flatMap((channel) => (channel ? [channel] : []));
-}
-
-/** Inboxes a channel surfaces in. */
-export async function getLinkedInboxes(
-  ctx: QueryCtx,
-  channelId: Id<"channels">,
-): Promise<Doc<"inboxes">[]> {
-  const links = await ctx.db
-    .query("inboxChannels")
-    .withIndex("by_channelId", (q) => q.eq("channelId", channelId))
-    .collect();
-  const inboxes = await Promise.all(links.map((link) => ctx.db.get(link.inboxId)));
-  return inboxes.flatMap((inbox) => (inbox ? [inbox] : []));
 }
 
 /** Every member owns exactly one personal inbox per workspace. */

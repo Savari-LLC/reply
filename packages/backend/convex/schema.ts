@@ -74,9 +74,9 @@ export default defineSchema({
     .index("by_workspaceId_and_inboxId", ["workspaceId", "inboxId"])
     .index("by_userId", ["userId"]),
 
-  // Shared inboxes belong to the whole workspace; personal inboxes are owned
-  // by one member (`ownerId`) and are only visible to that owner. Rows
-  // predating the `kind` field are shared.
+  // The only container members work in. Shared inboxes belong to the whole
+  // workspace; personal inboxes are owned by one member (`ownerId`) and are
+  // visible only to that owner. Rows predating the `kind` field are shared.
   inboxes: defineTable({
     workspaceId: v.id("workspaces"),
     name: v.string(),
@@ -87,53 +87,32 @@ export default defineSchema({
     .index("by_workspaceId_and_name", ["workspaceId", "name"])
     .index("by_workspaceId_and_ownerId", ["workspaceId", "ownerId"]),
 
-  // Simulated email connectors. Channels are workspace-level: shared channels
-  // belong to the team, personal channels to one member. Conversations live in
-  // the channel and surface in every inbox linked through `inboxChannels`.
-  // The "demo" provider seeds sample conversations on creation.
+  // A connected source of conversations, owned by exactly one inbox:
+  // connecting a channel is how an inbox starts receiving messages. A channel
+  // has no visibility of its own — it inherits the inbox's kind and access.
+  // Connections are simulated and seeded with a sample dataset.
   channels: defineTable({
     workspaceId: v.id("workspaces"),
-    // Legacy field from when a channel delivered into exactly one inbox.
-    inboxId: v.optional(v.id("inboxes")),
-    provider: v.union(v.literal("gmail"), v.literal("outlook"), v.literal("demo")),
-    emailAddress: v.string(),
-    displayName: v.string(),
+    inboxId: v.id("inboxes"),
+    provider: v.union(
+      v.literal("gmail"),
+      v.literal("outlook"),
+      v.literal("whatsapp"),
+      v.literal("sms"),
+    ),
+    // Email address or phone number the provider delivers from.
+    address: v.string(),
     status: v.union(v.literal("connected"), v.literal("disconnected")),
-    kind: v.optional(v.union(v.literal("shared"), v.literal("personal"))),
-    ownerId: v.optional(v.id("users")),
   })
     .index("by_inboxId", ["inboxId"])
     .index("by_workspaceId", ["workspaceId"])
-    .index("by_workspaceId_and_emailAddress", ["workspaceId", "emailAddress"]),
-
-  // Many-to-many: an inbox aggregates several channels, and one channel can
-  // surface in several inboxes (e.g. shared Sales and your personal inbox).
-  inboxChannels: defineTable({
-    workspaceId: v.id("workspaces"),
-    inboxId: v.id("inboxes"),
-    channelId: v.id("channels"),
-  })
-    .index("by_inboxId_and_channelId", ["inboxId", "channelId"])
-    .index("by_channelId", ["channelId"])
-    .index("by_workspaceId", ["workspaceId"]),
-
-  // Grants a member the right to see/link a shared channel. Admins bypass;
-  // personal channels are usable only by their owner.
-  channelAccess: defineTable({
-    workspaceId: v.id("workspaces"),
-    channelId: v.id("channels"),
-    userId: v.id("users"),
-  })
-    .index("by_channelId_and_userId", ["channelId", "userId"])
-    .index("by_workspaceId_and_channelId", ["workspaceId", "channelId"])
-    .index("by_workspaceId_and_userId", ["workspaceId", "userId"]),
+    .index("by_workspaceId_and_address", ["workspaceId", "address"]),
 
   // The unit of work. Status is open | waiting | closed; the "Assigned" view
   // is derived (status "open" with assigneeId set), never stored.
   threads: defineTable({
     workspaceId: v.id("workspaces"),
-    // Legacy: threads now belong to a channel; inbox membership is derived
-    // through `inboxChannels`.
+    // Legacy: threads belong to a channel, and the channel names the inbox.
     inboxId: v.optional(v.id("inboxes")),
     channelId: v.id("channels"),
     subject: v.string(),
@@ -187,7 +166,7 @@ export default defineSchema({
   // Per-user unread state, scoped for workspace unread counts.
   threadReads: defineTable({
     workspaceId: v.id("workspaces"),
-    // Legacy: unread state is per thread; inboxes are derived from channels.
+    // Legacy: unread state is per thread; the thread's channel names the inbox.
     inboxId: v.optional(v.id("inboxes")),
     threadId: v.id("threads"),
     userId: v.id("users"),
