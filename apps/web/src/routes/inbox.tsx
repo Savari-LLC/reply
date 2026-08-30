@@ -82,7 +82,8 @@ function AuthenticatedInbox({ invite }: { invite?: string }) {
       />
     );
   }
-  return <ConvexInboxPage />;
+  // Keyed by workspace so switching workspaces resets all inbox state.
+  return <ConvexInboxPage key={currentWorkspace.workspace._id} />;
 }
 
 function RouteLoading({ label }: { label: string }) {

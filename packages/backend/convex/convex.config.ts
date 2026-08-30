@@ -20,6 +20,11 @@ const app = defineApp({
     APP_URL: v.string(),
     RESEND_API_KEY: v.string(),
     RESEND_FROM_EMAIL: v.string(),
+    MAIL_GOOGLE_CLIENT_ID: v.optional(v.string()),
+    MAIL_GOOGLE_CLIENT_SECRET: v.optional(v.string()),
+    MAIL_MICROSOFT_CLIENT_ID: v.optional(v.string()),
+    MAIL_MICROSOFT_CLIENT_SECRET: v.optional(v.string()),
+    MAIL_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),
   },
 });
 

@@ -1,6 +1,12 @@
 import "@react-email/editor/themes/default.css";
 
 import { EmailEditor, type EmailEditorRef } from "@react-email/editor";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@reply/ui/components/dropdown-menu";
 import { Spinner } from "@reply/ui/components/spinner";
 import {
   ArrowLeft,
@@ -8,14 +14,22 @@ import {
   FileText,
   Maximize2,
   Paperclip,
+  PenLine,
   Smile,
   Sparkles,
+  SpellCheck,
   Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import type { CommentDraft, OperationState, Teammate, ThreadSummary } from "../types";
+import type {
+  CommentDraft,
+  CopilotMode,
+  OperationState,
+  Teammate,
+  ThreadSummary,
+} from "../types";
 import { formatFileSize } from "../utils";
 import { CommentComposer } from "./comment-composer";
 import { ComposerToolbar } from "./composer-toolbar";
@@ -29,7 +43,7 @@ type ReplyComposerProps = {
   commentState: OperationState;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
-  onGenerateDraft: (currentDraft?: string) => Promise<string>;
+  onGenerateDraft: (currentDraft?: string, mode?: CopilotMode) => Promise<string>;
   onSendReply: (body: string, bodyHtml?: string) => Promise<void>;
   /** Posts an internal comment (collapsed mode); never emailed. */
   onAddComment: (draft: CommentDraft) => Promise<void>;
@@ -41,6 +55,30 @@ const WORKSPACE_EMAIL = "hello@reply.dev";
 
 const ICON_BUTTON =
   "flex size-8 shrink-0 items-center justify-center rounded-lg text-(--inbox-text-subtle) outline-none transition-colors hover:bg-(--inbox-hover) hover:text-(--inbox-text) focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:pointer-events-none disabled:opacity-40";
+
+const COPILOT_ACTIONS: {
+  mode: CopilotMode;
+  label: string;
+  description: string;
+  icon: typeof Sparkles;
+  needsText: boolean;
+}[] = [
+  { mode: "draft", label: "Draft reply", description: "Write a reply from the thread", icon: Sparkles, needsText: false },
+  { mode: "grammar", label: "Fix grammar", description: "Correct spelling and grammar", icon: SpellCheck, needsText: true },
+  { mode: "improve", label: "Improve writing", description: "Refine tone and clarity", icon: PenLine, needsText: true },
+];
+
+const COPILOT_WORKING: Record<CopilotMode, string> = {
+  draft: "Copilot is drafting your reply",
+  grammar: "Copilot is fixing the grammar",
+  improve: "Copilot is improving your writing",
+};
+
+const COPILOT_FAILED: Record<CopilotMode, string> = {
+  draft: "Copilot could not draft a reply.",
+  grammar: "Copilot could not fix the grammar.",
+  improve: "Copilot could not improve the writing.",
+};
 
 const SEND_BUTTON =
   "flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-(--inbox-primary) px-4 text-sm font-medium tracking-[-0.1px] text-(--inbox-text-inverse) outline-none transition-colors hover:bg-(--inbox-primary)/90 focus-visible:ring-2 focus-visible:ring-(--inbox-primary) focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60";
@@ -73,8 +111,10 @@ function readFileAsDataUrl(file: File): Promise<{ url: string }> {
  * Two-mode ReplyFlow composer. Collapsed: an internal-comment box (Missive
  * style) that posts to the thread's private timeline. Expanded (via a Reply
  * action or "/"): the full Figma email composer — From/To/Subject fields,
- * formatting toolbar, rich text with inline images, attachments, Draft with
- * Copilot, and Send. Toasts come from the controller.
+ * formatting toolbar, rich text with inline images, attachments, the Copilot
+ * menu (draft / fix grammar / improve writing), and Send. While Copilot runs,
+ * an animated wave overlay covers the editor section. Toasts come from the
+ * controller.
  */
 export function ReplyComposer({
   thread,
@@ -96,7 +136,10 @@ export function ReplyComposer({
   const [richEmpty, setRichEmpty] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [tall, setTall] = useState(false);
-  const [draftFailed, setDraftFailed] = useState(false);
+  // Which Copilot action is running / last failed; drives the wave overlay
+  // and the inline retry affordance.
+  const [copilotMode, setCopilotMode] = useState<CopilotMode>("draft");
+  const [copilotFailed, setCopilotFailed] = useState<CopilotMode | null>(null);
   // Tiptap cannot render during SSR; mount the editor client-side only.
   const [mounted, setMounted] = useState(false);
   // Local guards against double-fire before the async operation state lands.
@@ -122,18 +165,19 @@ export function ReplyComposer({
     const text = (await editorRef.current?.getEmailText())?.trim();
     if (text) setPlainText(text);
     onExpandedChange(false);
-    setDraftFailed(false);
+    setCopilotFailed(null);
   };
 
-  const handleDraft = async () => {
+  const handleCopilot = async (mode: CopilotMode) => {
     if (draftingRef.current) return;
     draftingRef.current = true;
-    setDraftFailed(false);
+    setCopilotMode(mode);
+    setCopilotFailed(null);
     try {
       // Copilot reads the operator's in-progress text and returns the full
       // refined reply, so the result replaces the editor contents.
       const currentDraft = (await editorRef.current?.getEmailText())?.trim();
-      const draft = await onGenerateDraft(currentDraft || undefined);
+      const draft = await onGenerateDraft(currentDraft || undefined, mode);
       const target = editorRef.current?.editor;
       if (target) {
         target.commands.setContent(draftToHtml(draft));
@@ -141,7 +185,7 @@ export function ReplyComposer({
         setRichEmpty(false);
       }
     } catch {
-      setDraftFailed(true);
+      setCopilotFailed(mode);
     } finally {
       draftingRef.current = false;
     }
@@ -255,24 +299,42 @@ export function ReplyComposer({
 
         <ComposerToolbar editor={editor} onInsertImage={handleInsertImage} />
 
-        <div className={`inbox-composer-editor ${tall ? "inbox-composer-editor-tall" : ""}`} aria-label="Reply">
-          {mounted ? (
-            <EmailEditor
-              key={editorEpoch}
-              ref={editorRef}
-              content={plainText.trim() ? draftToHtml(plainText) : undefined}
-              placeholder="Write a reply…"
-              theme="basic"
-              onReady={(ref) => {
-                setRichEmpty(ref.editor?.isEmpty ?? true);
-                ref.editor?.commands.focus("end");
-              }}
-              onUpdate={(ref) => setRichEmpty(ref.editor?.isEmpty ?? true)}
-              onUploadImage={readFileAsDataUrl}
-            />
-          ) : (
-            <p className="px-4 py-3 text-sm text-(--inbox-text-muted)">Write a reply…</p>
-          )}
+        <div className="relative">
+          <div className={`inbox-composer-editor ${tall ? "inbox-composer-editor-tall" : ""}`} aria-label="Reply">
+            {mounted ? (
+              <EmailEditor
+                key={editorEpoch}
+                ref={editorRef}
+                content={plainText.trim() ? draftToHtml(plainText) : undefined}
+                placeholder="Write a reply…"
+                theme="basic"
+                onReady={(ref) => {
+                  setRichEmpty(ref.editor?.isEmpty ?? true);
+                  ref.editor?.commands.focus("end");
+                }}
+                onUpdate={(ref) => setRichEmpty(ref.editor?.isEmpty ?? true)}
+                onUploadImage={readFileAsDataUrl}
+              />
+            ) : (
+              <p className="px-4 py-3 text-sm text-(--inbox-text-muted)">Write a reply…</p>
+            )}
+          </div>
+          {drafting ? (
+            <div className="inbox-ai-generating" role="status">
+              <span className="inbox-ai-wave" aria-hidden />
+              <span className="inbox-ai-wave" aria-hidden />
+              <span className="inbox-ai-wave" aria-hidden />
+              <span className="relative flex items-center gap-2 text-sm font-medium tracking-[-0.1px] text-(--inbox-ai-text)">
+                <Sparkles className="inbox-ai-sparkle size-4" aria-hidden />
+                {COPILOT_WORKING[copilotMode]}
+                <span className="inbox-ai-dots" aria-hidden>
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {attachments.length > 0 ? (
@@ -308,30 +370,41 @@ export function ReplyComposer({
 
         {/* Bottom actions */}
         <div className="flex items-center gap-1 px-3 pb-3">
-          <button
-            type="button"
-            disabled={drafting}
-            onClick={handleDraft}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-medium tracking-[-0.1px] text-(--inbox-primary-text) outline-none transition-colors hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:pointer-events-none disabled:opacity-60"
-          >
-            {drafting ? (
-              <>
-                <Spinner className="size-3.5" />
-                Drafting…
-              </>
-            ) : (
-              <>
-                <Sparkles className="size-4" aria-hidden />
-                Draft with Copilot
-              </>
-            )}
-          </button>
-          {draftFailed && !drafting ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Copilot writing assistant"
+              disabled={drafting}
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--inbox-ai) outline-none transition-colors hover:bg-(--inbox-ai-soft) focus-visible:ring-2 focus-visible:ring-(--inbox-ai) disabled:pointer-events-none disabled:opacity-60 data-popup-open:bg-(--inbox-ai-soft)"
+            >
+              {drafting ? <Spinner className="size-4" /> : <Sparkles className="size-4" aria-hidden />}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              side="top"
+              className="min-w-52 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-lg shadow-black/5"
+            >
+              {COPILOT_ACTIONS.map((action) => (
+                <DropdownMenuItem
+                  key={action.mode}
+                  disabled={action.needsText && richEmpty}
+                  onClick={() => void handleCopilot(action.mode)}
+                  className="gap-2.5 rounded-md text-sm text-(--inbox-text)"
+                >
+                  <action.icon className="size-4 text-(--inbox-ai)" aria-hidden />
+                  <span className="flex flex-col">
+                    <span className="font-medium tracking-[-0.1px]">{action.label}</span>
+                    <span className="text-xs text-(--inbox-text-muted)">{action.description}</span>
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {copilotFailed && !drafting ? (
             <p role="alert" className="min-w-0 truncate text-xs text-destructive">
-              Copilot could not draft a reply.{" "}
+              {COPILOT_FAILED[copilotFailed]}{" "}
               <button
                 type="button"
-                onClick={handleDraft}
+                onClick={() => void handleCopilot(copilotFailed)}
                 className="font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
               >
                 Retry

@@ -187,8 +187,11 @@ export const listInboxes = query({
 export const listThreads = query({
   args: {
     inboxId: v.id("inboxes"),
-    status: v.optional(
-      v.union(v.literal("open"), v.literal("waiting"), v.literal("closed")),
+    // Sidebar views: "open" is everything still being worked (open + waiting),
+    // "assigned" narrows that to conversations with an assignee, and "done"
+    // is closed conversations. Omitted = every conversation in the inbox.
+    view: v.optional(
+      v.union(v.literal("open"), v.literal("assigned"), v.literal("done")),
     ),
   },
   handler: async (ctx, args) => {
@@ -198,12 +201,68 @@ export const listThreads = query({
       return null;
     }
     let threads = await threadsForInbox(ctx, inbox._id);
-    if (args.status) {
-      threads = threads.filter((thread) => thread.status === args.status);
+    if (args.view === "open") {
+      threads = threads.filter((thread) => thread.status !== "closed");
+    } else if (args.view === "assigned") {
+      threads = threads.filter(
+        (thread) => thread.status !== "closed" && thread.assigneeId !== undefined,
+      );
+    } else if (args.view === "done") {
+      threads = threads.filter((thread) => thread.status === "closed");
     }
     return await Promise.all(
       threads.map((thread) => threadSummary(ctx, context.user._id, thread, inbox._id)),
     );
+  },
+});
+
+/**
+ * Workspace-wide personal views for the sidebar: "mentions" returns
+ * conversations where the member is @tagged in an internal comment (done
+ * conversations drop out); "sent" returns conversations the member has
+ * replied to. Both re-check per-thread inbox access, so revoking a shared
+ * inbox also hides its threads here.
+ */
+export const listPersonalThreads = query({
+  args: { view: v.union(v.literal("mentions"), v.literal("sent")) },
+  handler: async (ctx, args) => {
+    const context = await requireWorkspaceContext(ctx);
+    let threadIds: Id<"threads">[];
+    if (args.view === "mentions") {
+      const rows = await ctx.db
+        .query("mentions")
+        .withIndex("by_mentionedUserId", (q) =>
+          q.eq("mentionedUserId", context.user._id),
+        )
+        .collect();
+      threadIds = rows
+        .filter((row) => row.workspaceId === context.workspace._id)
+        .map((row) => row.threadId);
+    } else {
+      const rows = await ctx.db
+        .query("messages")
+        .withIndex("by_workspaceId_and_authorId", (q) =>
+          q.eq("workspaceId", context.workspace._id).eq("authorId", context.user._id),
+        )
+        .collect();
+      threadIds = rows.map((row) => row.threadId);
+    }
+    const seen = new Set<Id<"threads">>();
+    const summaries = [];
+    for (const threadId of threadIds) {
+      if (seen.has(threadId)) continue;
+      seen.add(threadId);
+      const thread = await ctx.db.get(threadId);
+      if (!thread || !(await canAccessThread(ctx, context, thread))) continue;
+      // Mentions is a to-do list: once the conversation is done, it drops out.
+      if (args.view === "mentions" && thread.status === "closed") continue;
+      const inbox = await threadInbox(ctx, thread);
+      summaries.push(
+        await threadSummary(ctx, context.user._id, thread, inbox?._id ?? null),
+      );
+    }
+    summaries.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    return summaries;
   },
 });
 
@@ -589,6 +648,13 @@ export const sendReply = mutation({
     if (body.length === 0) throw new Error("Reply body cannot be empty");
     const context = await requireWorkspaceContext(ctx);
     const thread = await requireThread(ctx, context, args.threadId);
+    const liveConnection = await ctx.db
+      .query("mailConnections")
+      .withIndex("by_channelId", (q) => q.eq("channelId", thread.channelId))
+      .unique();
+    if (liveConnection?.status === "connected") {
+      throw new Error("Outbound mailbox delivery is not enabled. Your draft has not been sent.");
+    }
     const sentAt = Date.now();
     await ctx.db.insert("messages", {
       workspaceId: thread.workspaceId,

@@ -8,14 +8,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { INITIAL_OPERATIONS, TOAST_IDS } from "./constants";
+import type { WorkspaceSwitcherData } from "./components/workspace-switcher";
 import { InboxScreen } from "./inbox-screen";
 import type { InboxController, LoadScope } from "./model";
 import type {
   AsyncStatus,
   CommentDraft,
   CompanyProfile,
+  CopilotMode,
   InboxScreenState,
   InboxSummary,
+  InboxView,
   LabelAccent,
   ListStatus,
   Message,
@@ -196,12 +199,30 @@ export function ConvexInboxPage() {
   const [presence, setPresence] = useState<PresenceEntry[]>([]);
   const inboxes = useQuery(api.inbox.listInboxes, {});
   const teammateRows = useQuery(api.inbox.listTeammates, {});
+  const currentWorkspace = useQuery(api.workspaces.getCurrent, {});
+  const myWorkspaces = useQuery(api.workspaces.listMine, {});
+  const switchWorkspace = useMutation(api.workspaces.switchTo);
+  const createWorkspace = useMutation(api.workspaces.create);
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
+  const [selectedView, setSelectedView] = useState<InboxView>("all");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const threadRows = useQuery(
+  // Mentions and Sent span every accessible inbox, so they use the personal
+  // query; the other views scope `listThreads` to the selected inbox.
+  const isWorkspaceView = selectedView === "mentions" || selectedView === "sent";
+  const inboxThreadRows = useQuery(
     api.inbox.listThreads,
-    selectedInboxId ? { inboxId: selectedInboxId as Id<"inboxes"> } : "skip",
+    selectedInboxId && !isWorkspaceView
+      ? {
+          inboxId: selectedInboxId as Id<"inboxes">,
+          view: selectedView === "all" ? undefined : selectedView,
+        }
+      : "skip",
   );
+  const personalThreadRows = useQuery(
+    api.inbox.listPersonalThreads,
+    isWorkspaceView ? { view: selectedView as "mentions" | "sent" } : "skip",
+  );
+  const threadRows = isWorkspaceView ? personalThreadRows : inboxThreadRows;
   const detailRow = useQuery(
     api.inbox.getThread,
     selectedThreadId ? { threadId: selectedThreadId } : "skip",
@@ -337,6 +358,7 @@ export function ConvexInboxPage() {
       inboxes: inboxes?.map(mapInbox) ?? [],
       teammates: teammateRows?.map(mapTeammate) ?? [],
       selectedInboxId,
+      selectedView,
       selectedThreadId,
       listStatus,
       listError:
@@ -353,6 +375,7 @@ export function ConvexInboxPage() {
     inboxes,
     teammateRows,
     selectedInboxId,
+    selectedView,
     selectedThreadId,
     threadRows,
     detailRow,
@@ -395,8 +418,9 @@ export function ConvexInboxPage() {
   );
 
   const controller = useMemo<InboxController>(() => {
-    const selectInbox = (inboxId: string) => {
+    const selectInbox = (inboxId: string, view: InboxView = "all") => {
       setSelectedInboxId(inboxId);
+      setSelectedView(view);
       setSelectedThreadId(null);
     };
 
@@ -452,12 +476,14 @@ export function ConvexInboxPage() {
     const generateDraft = async (
       threadId: string,
       currentDraft?: string,
+      mode?: CopilotMode,
     ): Promise<string> => {
       setOperation("draft", "loading");
       try {
         const draft = await generateDraftAction({
           threadId: threadId as Id<"threads">,
           currentDraft,
+          mode,
         });
         setOperation("draft", "success");
         return draft;
@@ -472,10 +498,11 @@ export function ConvexInboxPage() {
       try {
         await sendReplyMutation({ threadId: threadId as Id<"threads">, body });
       } catch (error) {
-        setOperation("send", "error", "Your reply could not be sent.");
+        const message = error instanceof Error ? error.message : "Your reply could not be sent.";
+        setOperation("send", "error", message);
         toast.error("Your reply could not be sent.", {
           id: TOAST_IDS.send,
-          description: "Your draft is preserved — try again.",
+          description: `${message} Your draft is preserved.`,
         });
         throw error;
       }
@@ -579,6 +606,35 @@ export function ConvexInboxPage() {
     ? { name: profile.name, imageUrl: profile.imageUrl ?? undefined }
     : undefined;
 
+  // Switching or creating a workspace re-points `getCurrent`; the route
+  // remounts this page (keyed by workspace id) so all inbox state resets.
+  const workspaceSwitcher = useMemo<WorkspaceSwitcherData | undefined>(() => {
+    if (!currentWorkspace) return undefined;
+    return {
+      name: currentWorkspace.workspace.name,
+      workspaces: (myWorkspaces ?? []).map((workspace) => ({
+        id: workspace._id,
+        name: workspace.name,
+        isActive: workspace.isActive,
+      })),
+      onSwitch: async (workspaceId) => {
+        try {
+          const next = myWorkspaces?.find((workspace) => workspace._id === workspaceId);
+          await switchWorkspace({ workspaceId: workspaceId as Id<"workspaces"> });
+          toast.success(`Switched to ${next?.name ?? "workspace"}`, {
+            id: TOAST_IDS.workspace,
+          });
+        } catch {
+          toast.error("The workspace could not be switched.", { id: TOAST_IDS.workspace });
+        }
+      },
+      onCreate: async (name) => {
+        await createWorkspace({ name });
+        toast.success(`Created ${name.trim()}`, { id: TOAST_IDS.workspace });
+      },
+    };
+  }, [currentWorkspace, myWorkspaces, switchWorkspace, createWorkspace]);
+
   // Presence resets when the selected thread changes (keyed reporter), so
   // stale viewers from the previous thread never flash in the header.
   const viewers = useMemo<ThreadViewer[]>(
@@ -610,6 +666,7 @@ export function ConvexInboxPage() {
         currentUser={railUser}
         onSignOut={() => void signOut()}
         viewers={viewers}
+        workspace={workspaceSwitcher}
       />
     </>
   );
