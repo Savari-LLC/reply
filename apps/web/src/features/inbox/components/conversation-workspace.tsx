@@ -146,6 +146,9 @@ export function ConversationWorkspace({
     );
   }
 
+  const companyStatus =
+    detail.companyStatus ?? (detail.company ? "ready" : "unavailable");
+
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Conversation">
       <ConversationHeader
@@ -166,6 +169,12 @@ export function ConversationWorkspace({
             threadId={detail.thread.id}
             messages={detail.messages}
             onReply={() => setComposerExpanded(true)}
+            companyChip={{
+              status: companyStatus,
+              name: detail.company?.name ?? detail.thread.companyName,
+              logoUrl: detail.company?.logoUrl,
+              onOpen: () => setPanelOpen(true),
+            }}
           />
           {/* Keyed so a thread switch resets the local draft text. */}
           <ReplyComposer
@@ -182,6 +191,7 @@ export function ConversationWorkspace({
         {panelOpen ? (
           <CompanyProfilePanel
             company={detail.company}
+            status={companyStatus}
             thread={detail.thread}
             onClose={closePanel}
           />

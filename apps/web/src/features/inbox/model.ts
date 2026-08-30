@@ -22,6 +22,8 @@ export type InboxController = {
   setLabels: (threadId: string, labels: string[]) => Promise<void>;
   generateDraft: (threadId: string) => Promise<string>;
   sendReply: (threadId: string, body: string, bodyHtml?: string) => Promise<void>;
+  /** Demo: deliver a synthetic inbound email (real company domain) into an inbox. */
+  simulateEmail: (inboxId: string) => Promise<void>;
   retryLoad: (scope: LoadScope) => Promise<void>;
 };
 

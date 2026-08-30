@@ -22,12 +22,18 @@ export function ThreadRow({ thread, assignee, selected, onSelect }: ThreadRowPro
       }`}
     >
       <span className="relative shrink-0" aria-hidden>
-        <span
-          className="flex size-8 items-center justify-center rounded-full text-xs font-medium text-(--inbox-text)"
-          style={{ backgroundColor: getAvatarTint(thread.customerName) }}
-        >
-          {getInitials(thread.customerName)}
-        </span>
+        {thread.companyLogoUrl ? (
+          <span className="flex size-8 items-center justify-center overflow-hidden rounded-full border border-(--inbox-border) bg-white">
+            <img src={thread.companyLogoUrl} alt="" className="size-full object-contain p-0.5" />
+          </span>
+        ) : (
+          <span
+            className="flex size-8 items-center justify-center rounded-full text-xs font-medium text-(--inbox-text)"
+            style={{ backgroundColor: getAvatarTint(thread.customerName) }}
+          >
+            {getInitials(thread.customerName)}
+          </span>
+        )}
         <span className="absolute right-0 bottom-0 size-2 rounded-full bg-(--inbox-success) ring-2 ring-(--inbox-surface)" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">

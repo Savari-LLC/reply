@@ -93,6 +93,15 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
                 onSelectThread={handleSelectThread}
                 onClearFilters={() => setFilter("all")}
                 onRetry={() => controller.retryLoad("list")}
+                onSimulateEmail={
+                  state.selectedInboxId
+                    ? () =>
+                        void controller
+                          .simulateEmail(state.selectedInboxId!)
+                          .catch(() => undefined)
+                    : undefined
+                }
+                simulateState={state.operations.simulate}
               />
               <ConversationWorkspace
                 detail={state.selectedThread}

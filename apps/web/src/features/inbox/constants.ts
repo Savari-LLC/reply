@@ -37,6 +37,7 @@ export const OPERATION_KEYS: OperationKey[] = [
   "labels",
   "draft",
   "send",
+  "simulate",
 ];
 
 export const INITIAL_OPERATIONS = Object.fromEntries(
@@ -51,6 +52,7 @@ export const TOAST_IDS = {
   unread: "inbox-unread",
   priority: "inbox-priority",
   labels: "inbox-labels",
+  simulate: "inbox-simulate",
 } as const;
 
 /** Deterministic fixture scenarios, selectable via `?scenario=` in development. */

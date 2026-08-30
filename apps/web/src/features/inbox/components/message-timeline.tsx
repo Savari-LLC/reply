@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import type { Message } from "../types";
 import { formatDateSeparator } from "../utils";
-import { InboundEmailCard } from "./inbound-email-card";
+import { InboundEmailCard, type CompanyChip } from "./inbound-email-card";
 import { OutboundReplyBubble } from "./outbound-reply-bubble";
 
 function isSameDay(a: number, b: number): boolean {
@@ -20,14 +20,25 @@ type MessageTimelineProps = {
   messages: Message[];
   /** Opens the full reply composer; rendered on the latest inbound message. */
   onReply?: () => void;
+  /** Context.dev enrichment chip, rendered on the first inbound message. */
+  companyChip?: CompanyChip;
 };
 
 /** Independently scrollable message list with date-separator pills. */
-export function MessageTimeline({ threadId, messages, onReply }: MessageTimelineProps) {
+export function MessageTimeline({
+  threadId,
+  messages,
+  onReply,
+  companyChip,
+}: MessageTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const ordered = useMemo(() => [...messages].sort((a, b) => a.sentAt - b.sentAt), [messages]);
   const lastInboundId = useMemo(
     () => [...ordered].reverse().find((message) => message.direction === "inbound")?.id,
+    [ordered],
+  );
+  const firstInboundId = useMemo(
+    () => ordered.find((message) => message.direction === "inbound")?.id,
     [ordered],
   );
 
@@ -57,6 +68,7 @@ export function MessageTimeline({ threadId, messages, onReply }: MessageTimeline
                 <InboundEmailCard
                   message={message}
                   onReply={message.id === lastInboundId ? onReply : undefined}
+                  companyChip={message.id === firstInboundId ? companyChip : undefined}
                 />
               ) : (
                 <OutboundReplyBubble message={message} showSender={directionChanged} />

@@ -89,28 +89,21 @@ describe("workspace setup", () => {
 });
 
 describe("channels", () => {
-  test("connecting a channel to an inbox surfaces threads and demo teammates", async () => {
+  test("connecting a channel creates it empty — no conversations are imported", async () => {
     const t = convexTest(schema, modules);
     const { asUser } = await setupWorkspace(t);
     const inboxes = await asUser.query(api.inbox.listInboxes, {});
     const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
-    // Nothing is connected yet, so the inbox is empty.
-    expect(await asUser.query(api.inbox.listThreads, { inboxId: sales._id })).toEqual([]);
     await asUser.mutation(api.channels.connect, {
       inboxId: sales._id,
       provider: "gmail",
       address: "Sales@Example.test",
-      dataset: "sales",
     });
-    const threads = await asUser.query(api.inbox.listThreads, { inboxId: sales._id });
-    expect(threads!.length).toBeGreaterThan(0);
-    expect(threads!.some((thread) => thread.senderDomain === "northstar.ae")).toBe(true);
+    // Conversations only arrive through simulated incoming emails.
+    expect(await asUser.query(api.inbox.listThreads, { inboxId: sales._id })).toEqual([]);
+    // No demo teammates are created either.
     const teammates = await asUser.query(api.inbox.listTeammates, {});
-    expect(teammates.map((tm) => tm.name)).toEqual(
-      expect.arrayContaining(["Maya Haddad", "Noah Clarke"]),
-    );
-    // Assignees resolve to the seeded teammates.
-    expect(threads!.some((thread) => thread.assignee !== null)).toBe(true);
+    expect(teammates).toHaveLength(1);
     // The channel belongs to the inbox it was connected from, address normalized.
     const settings = await asUser.query(api.inboxes.listSettings, {});
     const salesSettings = settings.find((inbox) => inbox._id === sales._id)!;
@@ -128,19 +121,16 @@ describe("channels", () => {
       inboxId: support._id,
       provider: "outlook",
       address: "support@example.test",
-      dataset: "support",
     });
     await asUser.mutation(api.channels.connect, {
       inboxId: support._id,
       provider: "whatsapp",
       address: "+971 50 123 4567",
-      dataset: "support",
     });
     await asUser.mutation(api.channels.connect, {
       inboxId: support._id,
       provider: "sms",
       address: "441632960001",
-      dataset: "support",
     });
     const settings = await asUser.query(api.inboxes.listSettings, {});
     const channels = settings.find((inbox) => inbox._id === support._id)!.channels;
@@ -155,7 +145,6 @@ describe("channels", () => {
         inboxId: support._id,
         provider: "gmail",
         address: "+971501234500",
-        dataset: "support",
       }),
     ).rejects.toThrow(/valid Gmail address/);
     await expect(
@@ -163,7 +152,6 @@ describe("channels", () => {
         inboxId: support._id,
         provider: "sms",
         address: "not-a-number",
-        dataset: "support",
       }),
     ).rejects.toThrow(/valid SMS phone number/);
   });
@@ -178,14 +166,12 @@ describe("channels", () => {
       inboxId: sales._id,
       provider: "gmail",
       address: "shared@example.test",
-      dataset: "sales",
     });
     await expect(
       asUser.mutation(api.channels.connect, {
         inboxId: support._id,
         provider: "outlook",
         address: "shared@example.test",
-        dataset: "support",
       }),
     ).rejects.toThrow(/already connected/);
   });
@@ -202,17 +188,22 @@ describe("channels", () => {
         inboxId: shared._id,
         provider: "gmail",
         address: "team@example.test",
-        dataset: "sales",
       }),
     ).rejects.toThrow(/not found/i);
     await asMember.mutation(api.channels.connect, {
       inboxId: personal._id,
       provider: "gmail",
       address: "noor@example.test",
-      dataset: "support",
+    });
+    // The new channel starts empty; a simulated email delivers into it.
+    expect(
+      await asMember.query(api.inbox.listThreads, { inboxId: personal._id }),
+    ).toEqual([]);
+    await asMember.mutation(api.simulate.simulateIncomingEmail, {
+      inboxId: personal._id,
     });
     const threads = await asMember.query(api.inbox.listThreads, { inboxId: personal._id });
-    expect(threads!.length).toBeGreaterThan(0);
+    expect(threads!.length).toBe(1);
   });
 
   test("a channel is invisible to members without access to its inbox", async () => {
@@ -225,7 +216,6 @@ describe("channels", () => {
       inboxId: sales._id,
       provider: "gmail",
       address: "sales@example.test",
-      dataset: "sales",
     });
     // The member inherits access from the inbox, not from the channel.
     expect(
@@ -258,8 +248,11 @@ describe("channels", () => {
       inboxId: sales._id,
       provider: "gmail",
       address: "sales@example.test",
-      dataset: "sales",
     });
+    await asUser.mutation(api.simulate.simulateIncomingEmail, { inboxId: sales._id });
+    expect(
+      (await asUser.query(api.inbox.listThreads, { inboxId: sales._id }))!.length,
+    ).toBe(1);
     await asUser.mutation(api.channels.disconnect, { channelId });
     expect(await asUser.query(api.inbox.listThreads, { inboxId: sales._id })).toEqual([]);
   });
@@ -273,7 +266,6 @@ describe("channels", () => {
       inboxId: sales._id,
       provider: "gmail",
       address: "sales@example.test",
-      dataset: "sales",
     });
     const { asUser: asOutsider } = await setupWorkspace(t, "mallory");
     await expect(
@@ -284,7 +276,6 @@ describe("channels", () => {
         inboxId: sales._id,
         provider: "gmail",
         address: "mallory@example.test",
-        dataset: "sales",
       }),
     ).rejects.toThrow(/not found/i);
     expect(
@@ -324,12 +315,7 @@ describe("members", () => {
     const { asUser: asMember, userId: memberId } = await joinAsMember(t, workspaceId, "noor");
     const memberInboxes = await asMember.query(api.inbox.listInboxes, {});
     const shared = memberInboxes.find((inbox) => inbox.kind === "shared")!;
-    await asAdmin.mutation(api.channels.connect, {
-      inboxId: shared._id,
-      provider: "gmail",
-      address: "sales@example.test",
-      dataset: "sales",
-    });
+    await asAdmin.mutation(api.simulate.simulateIncomingEmail, { inboxId: shared._id });
     const threads = await asAdmin.query(api.inbox.listThreads, { inboxId: shared._id });
     await asAdmin.mutation(api.inbox.assign, {
       threadId: threads![0]!._id,
@@ -418,14 +404,14 @@ describe("inbox management and access", () => {
       inboxId: support._id,
       provider: "outlook",
       address: "support@example.test",
-      dataset: "support",
     });
     await asAdmin.mutation(api.channels.connect, {
       inboxId: sales._id,
       provider: "gmail",
       address: "sales@example.test",
-      dataset: "sales",
     });
+    await asAdmin.mutation(api.simulate.simulateIncomingEmail, { inboxId: support._id });
+    await asAdmin.mutation(api.simulate.simulateIncomingEmail, { inboxId: sales._id });
     await asAdmin.mutation(api.inboxes.remove, { inboxId: support._id });
     const after = await asAdmin.query(api.inbox.listInboxes, {});
     expect(after.some((inbox) => inbox._id === support._id)).toBe(false);

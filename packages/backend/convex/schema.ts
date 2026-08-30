@@ -217,6 +217,12 @@ export default defineSchema({
     logoUrl: v.optional(v.string()),
     industry: v.optional(v.string()),
     website: v.optional(v.string()),
+    slogan: v.optional(v.string()),
+    primaryColor: v.optional(v.string()),
+    location: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    socials: v.optional(v.array(v.object({ type: v.string(), url: v.string() }))),
     fetchedAt: v.number(),
   }).index("by_workspaceId_and_domain", ["workspaceId", "domain"]),
 });

@@ -47,6 +47,12 @@ async function threadSummary(
     .withIndex("by_threadId_and_sentAt", (q) => q.eq("threadId", thread._id))
     .order("desc")
     .take(1);
+  const companyProfile = await ctx.db
+    .query("companyProfiles")
+    .withIndex("by_workspaceId_and_domain", (q) =>
+      q.eq("workspaceId", thread.workspaceId).eq("domain", thread.senderDomain),
+    )
+    .unique();
   return {
     _id: thread._id,
     inboxId,
@@ -60,6 +66,9 @@ async function threadSummary(
     preview: lastMessage ? lastMessage.body.slice(0, 140) : "",
     assignee: assignee
       ? { _id: assignee._id, name: displayName(assignee) }
+      : null,
+    company: companyProfile
+      ? { name: companyProfile.name, logoUrl: companyProfile.logoUrl ?? null }
       : null,
     labels,
     unread: await isUnread(ctx, actorId, thread),
@@ -225,6 +234,12 @@ export const getThread = query({
             industry: companyProfile.industry ?? null,
             website: companyProfile.website ?? null,
             logoUrl: companyProfile.logoUrl ?? null,
+            slogan: companyProfile.slogan ?? null,
+            primaryColor: companyProfile.primaryColor ?? null,
+            location: companyProfile.location ?? null,
+            email: companyProfile.email ?? null,
+            phone: companyProfile.phone ?? null,
+            socials: companyProfile.socials ?? [],
           }
         : null,
       messages: await Promise.all(

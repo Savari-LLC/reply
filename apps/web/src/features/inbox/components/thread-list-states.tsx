@@ -43,7 +43,8 @@ export function ThreadListEmptyInbox({
           No channel connected
         </p>
         <p className="text-xs tracking-[-0.1px] text-(--inbox-text-muted)">
-          Connect a channel to bring conversations into {inboxName}.
+          Connect a channel, or press Simulate above to deliver a demo email into{" "}
+          {inboxName}.
         </p>
         <Link
           to="/settings"
@@ -64,7 +65,7 @@ export function ThreadListEmptyInbox({
         You’re all caught up
       </p>
       <p className="text-xs tracking-[-0.1px] text-(--inbox-text-muted)">
-        No conversations in {inboxName}.
+        No conversations in {inboxName}. Press Simulate above to deliver a demo email.
       </p>
     </div>
   );

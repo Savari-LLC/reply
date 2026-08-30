@@ -113,6 +113,8 @@ function mapThread(row: ThreadRow): ThreadSummary {
     inboxId: row.inboxId ?? "",
     customerName: row.senderName,
     customerEmail: row.senderEmail,
+    companyName: row.company?.name,
+    companyLogoUrl: row.company?.logoUrl ?? undefined,
     subject: row.subject,
     preview: row.preview,
     status: row.status,
@@ -152,6 +154,13 @@ function mapStoredCompany(detail: ThreadDetailRow): CompanyProfile | undefined {
     description: profile.description ?? undefined,
     industry: profile.industry ?? undefined,
     logoUrl: profile.logoUrl ?? undefined,
+    location: profile.location ?? undefined,
+    slogan: profile.slogan ?? undefined,
+    primaryColor: profile.primaryColor ?? undefined,
+    website: profile.website ?? undefined,
+    email: profile.email ?? undefined,
+    phone: profile.phone ?? undefined,
+    socials: profile.socials.length > 0 ? profile.socials : undefined,
   };
 }
 
@@ -183,7 +192,8 @@ export function ConvexInboxPage() {
   const assignMutation = useMutation(api.inbox.assign);
   const setStatusMutation = useMutation(api.inbox.setStatus);
   const sendReplyMutation = useMutation(api.inbox.sendReply);
-  const retrieveCompany = useAction(api.contextPreview.retrieveCompany);
+  const simulateMutation = useMutation(api.simulate.simulateIncomingEmail);
+  const enrichThread = useAction(api.companyContext.enrichThread);
 
   const [operations, setOperations] = useState(INITIAL_OPERATIONS);
   const setOperation = useCallback(
@@ -233,31 +243,24 @@ export function ConvexInboxPage() {
   }, [detailId, detailUnread, markRead]);
 
   // Live Context.dev enrichment for domains without a stored company profile.
-  const [enriched, setEnriched] = useState<Record<string, CompanyProfile | null>>({});
+  // The action persists into `companyProfiles`, so the reactive `getThread`
+  // query delivers the finished card (and it survives refresh).
+  const [enrichment, setEnrichment] = useState<Record<string, "pending" | "done">>({});
   const requestedDomains = useRef<Set<string>>(new Set());
+  const missingThreadId = detailRow && !detailRow.companyProfile ? detailRow._id : null;
   const missingDomain =
     detailRow && !detailRow.companyProfile ? detailRow.senderDomain : null;
   useEffect(() => {
-    if (!missingDomain || requestedDomains.current.has(missingDomain)) return;
+    if (!missingThreadId || !missingDomain) return;
+    if (requestedDomains.current.has(missingDomain)) return;
     requestedDomains.current.add(missingDomain);
-    retrieveCompany({ domain: missingDomain })
-      .then((company) => {
-        setEnriched((prev) => ({
-          ...prev,
-          [missingDomain]: company
-            ? {
-                name: company.name ?? company.domain,
-                domain: company.domain,
-                description: company.description ?? undefined,
-                logoUrl: company.logoUrl ?? undefined,
-              }
-            : null,
-        }));
-      })
-      .catch(() => {
-        setEnriched((prev) => ({ ...prev, [missingDomain]: null }));
+    setEnrichment((prev) => ({ ...prev, [missingDomain]: "pending" }));
+    enrichThread({ threadId: missingThreadId as Id<"threads"> })
+      .catch(() => {})
+      .finally(() => {
+        setEnrichment((prev) => ({ ...prev, [missingDomain]: "done" }));
       });
-  }, [missingDomain, retrieveCompany]);
+  }, [missingThreadId, missingDomain, enrichThread]);
 
   const state = useMemo<InboxScreenState>(() => {
     const screenStatus: ScreenStatus = setupError
@@ -286,8 +289,12 @@ export function ConvexInboxPage() {
 
     let selectedThread: ThreadDetail | null = null;
     if (detailRow) {
-      const company =
-        mapStoredCompany(detailRow) ?? enriched[detailRow.senderDomain] ?? undefined;
+      const company = mapStoredCompany(detailRow);
+      const companyStatus = company
+        ? "ready"
+        : enrichment[detailRow.senderDomain] === "done"
+          ? "unavailable"
+          : "loading";
       selectedThread = {
         thread: {
           ...mapThread(detailRow),
@@ -295,6 +302,7 @@ export function ConvexInboxPage() {
         },
         messages: mapMessages(detailRow),
         company,
+        companyStatus,
       };
     }
 
@@ -323,7 +331,7 @@ export function ConvexInboxPage() {
     selectedThreadId,
     threadRows,
     detailRow,
-    enriched,
+    enrichment,
     operations,
   ]);
 
@@ -448,6 +456,20 @@ export function ConvexInboxPage() {
       });
     };
 
+    const simulateEmail = async (inboxId: string) =>
+      runMutation(
+        "simulate",
+        () => simulateMutation({ inboxId: inboxId as Id<"inboxes"> }),
+        {
+          toastId: TOAST_IDS.simulate,
+          successToast: {
+            title: "Incoming email delivered",
+            description: "Context.dev is generating the sender's company profile.",
+          },
+          retry: () => void simulateEmail(inboxId).catch(() => undefined),
+        },
+      );
+
     const retryLoad = async (scope: LoadScope) => {
       // Queries are reactive and recover on their own; only the seeding
       // step is imperative and needs an explicit retry.
@@ -465,6 +487,7 @@ export function ConvexInboxPage() {
       setLabels,
       generateDraft,
       sendReply,
+      simulateEmail,
       retryLoad,
     };
   }, [
@@ -473,6 +496,7 @@ export function ConvexInboxPage() {
     assignMutation,
     setStatusMutation,
     sendReplyMutation,
+    simulateMutation,
     markRead,
     runSetup,
     setOperation,

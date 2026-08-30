@@ -5,19 +5,18 @@ import { requireWorkspaceContext } from "./authHelpers";
 import { canManageInbox, requireManageableChannelInbox } from "./lib/access";
 import { deleteChannelCascade } from "./lib/cascade";
 import { channelProviderValidator, normalizeChannelAddress } from "./lib/providers";
-import { createSampleChannel, sampleDatasetValidator } from "./seed";
 
 /**
- * Connects a channel to an inbox the caller manages, seeded with a sample
- * dataset. There is no standalone channel: the inbox is the only container, so
- * the channel inherits its visibility and access.
+ * Connects a channel to an inbox the caller manages. There is no standalone
+ * channel: the inbox is the only container, so the channel inherits its
+ * visibility and access. Channels start empty — conversations arrive only
+ * through simulated incoming emails, never from imported sample data.
  */
 export const connect = mutation({
   args: {
     inboxId: v.id("inboxes"),
     provider: channelProviderValidator,
     address: v.string(),
-    dataset: sampleDatasetValidator,
   },
   returns: v.id("channels"),
   handler: async (ctx, args) => {
@@ -36,15 +35,13 @@ export const connect = mutation({
     if (duplicate) {
       throw new Error(`${address} is already connected in this workspace`);
     }
-    const result = await createSampleChannel(ctx, {
+    return await ctx.db.insert("channels", {
       workspaceId: context.workspace._id,
-      actorId: context.user._id,
       inboxId: inbox._id,
       provider: args.provider,
       address,
-      dataset: args.dataset,
+      status: "connected",
     });
-    return result.channelId;
   },
 });
 

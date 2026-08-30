@@ -346,6 +346,13 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       });
     };
 
+    const simulateEmail = async () => {
+      toast.info("Simulated emails need the live workspace.", {
+        id: TOAST_IDS.simulate,
+        description: "Sign in to deliver a demo email enriched by Context.dev.",
+      });
+    };
+
     const retryLoad = async (scope: LoadScope) => {
       if (scope === "screen") return loadScreen();
       if (scope === "list") {
@@ -366,6 +373,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       setLabels,
       generateDraft,
       sendReply,
+      simulateEmail,
       retryLoad,
     };
   }, [loadList, loadScreen, loadThread, runMutation, scenario, setOperation, state, updateThread]);

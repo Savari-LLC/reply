@@ -18,7 +18,8 @@ export type OperationKey =
   | "priority"
   | "labels"
   | "draft"
-  | "send";
+  | "send"
+  | "simulate";
 
 export type OperationState = {
   status: AsyncStatus;
@@ -60,6 +61,8 @@ export type ThreadSummary = {
   customerName: string;
   customerEmail: string;
   companyName?: string;
+  /** Context.dev logo for the sender's company; replaces the initials avatar. */
+  companyLogoUrl?: string;
   subject: string;
   preview: string;
   status: ThreadStatus;
@@ -90,13 +93,24 @@ export type CompanyProfile = {
   logoUrl?: string;
   industry?: string;
   location?: string;
+  slogan?: string;
+  primaryColor?: string;
+  website?: string;
+  email?: string;
+  phone?: string;
+  socials?: { type: string; url: string }[];
 };
+
+/** Lifecycle of Context.dev enrichment for the selected thread's sender. */
+export type CompanyStatus = "loading" | "ready" | "unavailable";
 
 export type ThreadDetail = {
   thread: ThreadSummary;
   messages: Message[];
   /** `undefined` = enrichment unavailable; render domain/name fallbacks. */
   company?: CompanyProfile;
+  /** Defaults to "ready"/"unavailable" based on `company` when omitted. */
+  companyStatus?: CompanyStatus;
 };
 
 /** A teammate currently viewing the selected thread (live presence). */

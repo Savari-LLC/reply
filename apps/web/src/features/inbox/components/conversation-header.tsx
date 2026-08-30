@@ -100,7 +100,11 @@ export function ConversationHeader({
     <header className="flex h-16 shrink-0 items-center gap-2 border-b border-(--inbox-border-subtle) px-4">
       {/* Identity + context */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <ConversationAvatar name={thread.customerName} online />
+        <ConversationAvatar
+          name={thread.customerName}
+          imageUrl={thread.companyLogoUrl}
+          online
+        />
         <h2
           ref={headingRef}
           tabIndex={-1}
