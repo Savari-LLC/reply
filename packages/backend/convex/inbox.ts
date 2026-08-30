@@ -176,7 +176,8 @@ export const listInboxes = query({
             address: channel.address,
             status: channel.status,
           })),
-          openCount: inboxThreads.filter((thread) => thread.status === "open").length,
+          // Matches the sidebar "Open" view, which lists open + waiting threads.
+          openCount: inboxThreads.filter((thread) => thread.status !== "closed").length,
           unreadCount,
         };
       }),
@@ -506,6 +507,20 @@ export const setStatus = mutation({
     const context = await requireWorkspaceContext(ctx);
     const thread = await requireThread(ctx, context, args.threadId);
     await ctx.db.patch(thread._id, { status: args.status });
+    return null;
+  },
+});
+
+export const setPriority = mutation({
+  args: {
+    threadId: v.id("threads"),
+    priority: v.union(v.literal("normal"), v.literal("urgent")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const context = await requireWorkspaceContext(ctx);
+    const thread = await requireThread(ctx, context, args.threadId);
+    await ctx.db.patch(thread._id, { priority: args.priority });
     return null;
   },
 });

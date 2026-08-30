@@ -58,9 +58,12 @@ function SettingsRoute() {
   if (isLoading || (isAuthenticated && currentWorkspace === undefined)) {
     return <RouteLoading label="Loading settings…" />;
   }
-  // Sign-in and workspace onboarding both live on the inbox route.
-  if (!isAuthenticated || currentWorkspace === null) {
-    return <Navigate to="/inbox" search={{}} />;
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" search={{}} replace />;
+  }
+  // Workspace onboarding lives on the inbox route.
+  if (currentWorkspace === null) {
+    return <Navigate to="/inbox" search={{}} replace />;
   }
   return (
     <SettingsScreen
