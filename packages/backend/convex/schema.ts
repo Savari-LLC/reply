@@ -90,7 +90,7 @@ export default defineSchema({
   // A connected source of conversations, owned by exactly one inbox:
   // connecting a channel is how an inbox starts receiving messages. A channel
   // has no visibility of its own — it inherits the inbox's kind and access.
-  // Connections are simulated and seeded with a sample dataset.
+  // Email channels use OAuth; messaging channels currently use sample data.
   channels: defineTable({
     workspaceId: v.id("workspaces"),
     inboxId: v.id("inboxes"),
@@ -115,6 +115,7 @@ export default defineSchema({
     // Legacy: threads belong to a channel, and the channel names the inbox.
     inboxId: v.optional(v.id("inboxes")),
     channelId: v.id("channels"),
+    externalThreadId: v.optional(v.string()),
     subject: v.string(),
     status: v.union(
       v.literal("open"),
@@ -147,12 +148,14 @@ export default defineSchema({
       "status",
       "lastMessageAt",
     ])
-    .index("by_channelId_and_lastMessageAt", ["channelId", "lastMessageAt"]),
+    .index("by_channelId_and_lastMessageAt", ["channelId", "lastMessageAt"])
+    .index("by_channelId_and_externalThreadId", ["channelId", "externalThreadId"]),
 
   messages: defineTable({
     // Denormalized from the thread so message authz never skips the tenant check.
     workspaceId: v.id("workspaces"),
     threadId: v.id("threads"),
+    externalMessageId: v.optional(v.string()),
     direction: v.union(v.literal("inbound"), v.literal("outbound")),
     // Set on outbound replies authored in Reply.
     authorId: v.optional(v.id("users")),
@@ -161,7 +164,9 @@ export default defineSchema({
     senderEmail: v.optional(v.string()),
     body: v.string(),
     sentAt: v.number(),
-  }).index("by_threadId_and_sentAt", ["threadId", "sentAt"]),
+  })
+    .index("by_threadId_and_sentAt", ["threadId", "sentAt"])
+    .index("by_threadId_and_externalMessageId", ["threadId", "externalMessageId"]),
 
   // Per-user unread state, scoped for workspace unread counts.
   threadReads: defineTable({
@@ -219,4 +224,45 @@ export default defineSchema({
     website: v.optional(v.string()),
     fetchedAt: v.number(),
   }).index("by_workspaceId_and_domain", ["workspaceId", "domain"]),
+
+  mailOauthStates: defineTable({
+    stateHash: v.string(),
+    codeVerifierEncrypted: v.string(),
+    workspaceId: v.id("workspaces"),
+    inboxId: v.id("inboxes"),
+    channelId: v.optional(v.id("channels")),
+    userId: v.id("users"),
+    provider: v.union(v.literal("gmail"), v.literal("outlook")),
+    expiresAt: v.number(),
+  })
+    .index("by_stateHash", ["stateHash"])
+    .index("by_userId", ["userId"]),
+
+  mailConnections: defineTable({
+    workspaceId: v.id("workspaces"),
+    inboxId: v.id("inboxes"),
+    channelId: v.id("channels"),
+    connectedBy: v.id("users"),
+    provider: v.union(v.literal("gmail"), v.literal("outlook")),
+    providerAccountId: v.string(),
+    emailAddress: v.string(),
+    accessTokenEncrypted: v.optional(v.string()),
+    refreshTokenEncrypted: v.optional(v.string()),
+    accessTokenExpiresAt: v.number(),
+    scope: v.string(),
+    status: v.union(v.literal("connected"), v.literal("disconnected"), v.literal("error")),
+    syncStatus: v.union(v.literal("idle"), v.literal("syncing"), v.literal("error")),
+    lastSyncedAt: v.optional(v.number()),
+    lastSyncError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_inboxId", ["inboxId"])
+    .index("by_channelId", ["channelId"])
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_workspaceId_and_provider_and_providerAccountId", [
+      "workspaceId",
+      "provider",
+      "providerAccountId",
+    ]),
 });

@@ -28,12 +28,12 @@ const RAIL_ICONS: Array<{
   label: string;
   Icon: typeof InboxIcon;
   section?: RailSection;
-  to?: string;
+  to?: "/inbox" | "/settings";
 }> = [
-    { label: "Inbox", Icon: InboxIcon, section: "inbox", to: "/inbox" },
-    { label: "Calendar", Icon: Calendar },
-    { label: "Settings", Icon: Settings, section: "settings", to: "/settings" },
-  ];
+  { label: "Inbox", Icon: InboxIcon, section: "inbox", to: "/inbox" },
+  { label: "Calendar", Icon: Calendar },
+  { label: "Settings", Icon: Settings, section: "settings", to: "/settings" },
+];
 
 export type RailUser = {
   name: string;
@@ -88,10 +88,11 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
       <div className="flex flex-col gap-1.5 p-2">
         {RAIL_ICONS.map(({ label, Icon, section, to }) => {
           const active = section !== undefined && section === activeSection;
-          const className = `flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${active
+          const className = `flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
+            active
               ? "bg-(--inbox-action-secondary-hover) text-(--inbox-text)"
               : "text-(--inbox-text-subtle)"
-            }`;
+          }`;
           if (to) {
             return (
               <Link
@@ -115,7 +116,7 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
         })}
       </div>
       <div className="min-h-0 flex-1" />
-      <div className="px-2 pb-3 pt-2">
+      <div className="px-2 pt-2 pb-3">
         {onSignOut ? (
           <>
             <DropdownMenu>

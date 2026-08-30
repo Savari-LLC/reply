@@ -8,9 +8,9 @@ import { channelProviderValidator, normalizeChannelAddress } from "./lib/provide
 import { createSampleChannel, sampleDatasetValidator } from "./seed";
 
 /**
- * Connects a channel to an inbox the caller manages, seeded with a sample
- * dataset. There is no standalone channel: the inbox is the only container, so
- * the channel inherits its visibility and access.
+ * Connects a sample channel to an inbox the caller manages. There is no
+ * standalone channel: the inbox is the only container, so the channel inherits
+ * its visibility and access.
  */
 export const connect = mutation({
   args: {
@@ -59,6 +59,13 @@ export const disconnect = mutation({
       throw new Error("Channel not found");
     }
     await requireManageableChannelInbox(ctx, context.membership, channel);
+    const mailConnection = await ctx.db
+      .query("mailConnections")
+      .withIndex("by_channelId", (q) => q.eq("channelId", channel._id))
+      .unique();
+    if (mailConnection) {
+      throw new Error("Disconnect this mailbox through the mail channel controls");
+    }
     await deleteChannelCascade(ctx, channel);
     return null;
   },

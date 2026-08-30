@@ -42,6 +42,11 @@ export async function deleteChannelCascade(ctx: MutationCtx, channel: Doc<"chann
     .withIndex("by_channelId_and_lastMessageAt", (q) => q.eq("channelId", channel._id))
     .collect();
   for (const thread of channelThreads) await deleteThreadCascade(ctx, thread);
+  const mailConnection = await ctx.db
+    .query("mailConnections")
+    .withIndex("by_channelId", (q) => q.eq("channelId", channel._id))
+    .unique();
+  if (mailConnection) await ctx.db.delete(mailConnection._id);
   await ctx.db.delete(channel._id);
 }
 

@@ -67,6 +67,29 @@ cd packages/backend
 bunx --bun convex env set CONTEXT_DEV_API_KEY your_context_dev_key
 ```
 
+## Mailbox OAuth
+
+Reply can import recent Gmail and Microsoft Outlook conversations into the current workspace with read-only OAuth access. Register this exact callback URL in both provider applications:
+
+```text
+https://<your-convex-deployment>.convex.site/mail/oauth/callback
+```
+
+Enable the Gmail API and request `https://www.googleapis.com/auth/gmail.readonly` in Google Cloud. In Microsoft Entra, add delegated `User.Read` and `Mail.Read` permissions; the app also requests `offline_access` for refresh tokens.
+
+Configure these values separately on every Convex deployment:
+
+```bash
+cd packages/backend
+bunx --bun convex env set MAIL_GOOGLE_CLIENT_ID your-google-client-id
+bunx --bun convex env set MAIL_GOOGLE_CLIENT_SECRET your-google-client-secret
+bunx --bun convex env set MAIL_MICROSOFT_CLIENT_ID your-microsoft-client-id
+bunx --bun convex env set MAIL_MICROSOFT_CLIENT_SECRET your-microsoft-client-secret
+bunx --bun convex env set MAIL_TOKEN_ENCRYPTION_KEY your-base64-encoded-32-byte-key
+```
+
+Generate the encryption key once with `openssl rand -base64 32`, store it securely, and never commit it. Losing or rotating this key disconnects existing channels. Open **Settings → Inboxes**, choose the destination inbox, and select **Connect channel** to authorize Gmail or Outlook. Imported conversations remain after disconnecting. Outbound delivery and provider webhooks are intentionally not enabled yet.
+
 ## Commands
 
 ```bash
