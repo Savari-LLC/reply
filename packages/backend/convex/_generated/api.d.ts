@@ -20,6 +20,7 @@ import type * as lib_access from "../lib/access.js";
 import type * as lib_avatar from "../lib/avatar.js";
 import type * as lib_cascade from "../lib/cascade.js";
 import type * as members from "../members.js";
+import type * as presence from "../presence.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 import type * as workspaces from "../workspaces.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   "lib/avatar": typeof lib_avatar;
   "lib/cascade": typeof lib_cascade;
   members: typeof members;
+  presence: typeof presence;
   seed: typeof seed;
   users: typeof users;
   workspaces: typeof workspaces;
@@ -80,6 +82,7 @@ export declare const components: {
   authUsername: import("@convex-dev/auth/username/_generated/component.js").ComponentApi<"authUsername">;
   oauthGoogle: import("@convex-dev/auth/providers/oauth/_generated/component.js").ComponentApi<"oauthGoogle">;
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
+  presence: import("@convex-dev/presence/_generated/component.js").ComponentApi<"presence">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
   contextDev: import("@context-dot-dev/convex/_generated/component.js").ComponentApi<"contextDev">;
