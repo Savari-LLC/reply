@@ -1,5 +1,5 @@
 import { Spinner } from "@reply/ui/components/spinner";
-import { Building2, ChevronRight, Sparkles } from "lucide-react";
+import { Building2, ChevronRight, Reply, Sparkles } from "lucide-react";
 
 import type { CompanyStatus, Message } from "../types";
 import { formatRelativeTime } from "../utils";
@@ -15,7 +15,7 @@ export type CompanyChip = {
 
 type InboundEmailCardProps = {
   message: Message;
-  /** Renders the teal Reply button (latest inbound message) and opens the full composer. */
+  /** Renders the reply icon (latest inbound message) and opens the full composer. */
   onReply?: () => void;
   /**
    * Context.dev enrichment state, rendered on the first email of the thread
@@ -97,22 +97,22 @@ export function InboundEmailCard({ message, onReply, companyChip }: InboundEmail
           <time className="text-xs text-(--inbox-text-muted)">
             {formatRelativeTime(message.sentAt)}
           </time>
+          {onReply ? (
+            <button
+              type="button"
+              aria-label="Reply to this email"
+              title="Reply"
+              onClick={onReply}
+              className="-my-1.5 flex size-8 items-center justify-center rounded-lg text-(--inbox-text-subtle) outline-none transition-colors hover:bg-(--inbox-hover) hover:text-(--inbox-text) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+            >
+              <Reply className="size-4" aria-hidden />
+            </button>
+          ) : null}
         </div>
       </div>
       <p className="px-4 pt-3 pb-4 text-sm leading-5 break-words whitespace-pre-line text-(--inbox-text)">
         {message.body}
       </p>
-      {onReply ? (
-        <div className="px-4 pb-4">
-          <button
-            type="button"
-            onClick={onReply}
-            className="flex h-8 items-center gap-1.5 rounded-lg bg-(--inbox-primary) px-4 text-sm font-medium tracking-[-0.1px] text-(--inbox-text-inverse) outline-none transition-colors hover:bg-(--inbox-primary)/90 focus-visible:ring-2 focus-visible:ring-(--inbox-primary) focus-visible:ring-offset-2"
-          >
-            Reply
-          </button>
-        </div>
-      ) : null}
     </article>
   );
 }

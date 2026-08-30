@@ -2,6 +2,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -97,9 +98,9 @@ export function ConversationHeader({
   };
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b border-(--inbox-border-subtle) px-4">
-      {/* Identity + context */}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+    <header className="flex shrink-0 flex-col gap-2 border-b border-(--inbox-border-subtle) px-4 py-3">
+      {/* Row 1: identity + quiet controls */}
+      <div className="flex h-8 items-center gap-2">
         <ConversationAvatar
           name={thread.customerName}
           imageUrl={thread.companyLogoUrl}
@@ -108,7 +109,7 @@ export function ConversationHeader({
         <h2
           ref={headingRef}
           tabIndex={-1}
-          className="min-w-0 shrink truncate rounded-sm text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong) outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+          className="min-w-0 truncate rounded-sm text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong) outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
         >
           {thread.subject}
         </h2>
@@ -117,17 +118,114 @@ export function ConversationHeader({
             Urgent
           </span>
         ) : null}
-        <span className="h-4 w-px shrink-0 bg-(--inbox-border)" aria-hidden />
-        {inboxName ? (
-          <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-(--inbox-hover) px-1.5 text-sm font-medium tracking-[-0.1px] text-(--inbox-text-strong)">
-            <Inbox className="size-3.5 text-(--inbox-text-subtle)" aria-hidden />
-            {inboxName}
-          </span>
-        ) : null}
-        <span className="shrink-0 rounded-full border border-(--inbox-border) bg-(--inbox-surface) px-2 py-0.5 text-xs font-medium text-(--inbox-text)">
-          {STATUS_LABELS[thread.status]}
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {/* Overflow: priority, read state, status moves, labels */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={ICON_CONTROL}
+              aria-label="More conversation actions"
+              disabled={overflowBusy}
+            >
+              {overflowBusy ? (
+                <Spinner className="size-3.5" />
+              ) : (
+                <EllipsisVertical className="size-4" aria-hidden />
+              )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className={MENU} align="end">
+              <DropdownMenuItem
+                className={MENU_ITEM}
+                onClick={() => void actions.setPriority(isUrgent ? "normal" : "urgent")}
+              >
+                <TriangleAlert
+                  className={`size-4 ${isUrgent ? "text-destructive" : "text-(--inbox-text-subtle)"}`}
+                  aria-hidden
+                />
+                {isUrgent ? "Remove urgent" : "Mark urgent"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={MENU_ITEM}
+                onClick={() => void actions.setUnread(!thread.unread)}
+              >
+                {thread.unread ? (
+                  <MailOpen className="size-4 text-(--inbox-text-subtle)" aria-hidden />
+                ) : (
+                  <Mail className="size-4 text-(--inbox-text-subtle)" aria-hidden />
+                )}
+                {thread.unread ? "Mark as read" : "Mark as unread"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {/* GroupLabel needs a Group ancestor; Base UI throws without one. */}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-xs font-medium text-(--inbox-text-muted)">
+                  Status
+                </DropdownMenuLabel>
+                {(["open", "waiting"] as const).map((status) => (
+                  <DropdownMenuItem
+                    key={status}
+                    className={MENU_ITEM}
+                    onClick={() => void actions.setStatus(status)}
+                  >
+                    {STATUS_LABELS[status]}
+                    {status === thread.status ? (
+                      <Check className="ml-auto size-3.5 text-(--inbox-primary)" aria-hidden />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              {thread.labels.length > 0 ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-xs font-medium text-(--inbox-text-muted)">
+                      Labels
+                    </DropdownMenuLabel>
+                    {thread.labels.map((label) => (
+                      <DropdownMenuCheckboxItem
+                        key={label.id}
+                        checked
+                        onCheckedChange={(checked) => toggleLabel(label.id, checked)}
+                        className={MENU_ITEM}
+                      >
+                        <span
+                          className="size-1.5 rounded-full"
+                          style={{ backgroundColor: LABEL_ACCENT_STYLES[label.accent].dot }}
+                          aria-hidden
+                        />
+                        {label.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="h-4 w-px bg-(--inbox-border)" aria-hidden />
+          <button
+            type="button"
+            ref={panelTriggerRef}
+            aria-label="Company details"
+            aria-expanded={panelOpen}
+            onClick={onTogglePanel}
+            className={`${ICON_CONTROL} ${panelOpen ? "bg-(--inbox-active) text-(--inbox-text)" : ""}`}
+          >
+            <PanelRight className="size-4" aria-hidden />
+          </button>
         </span>
-        <span className="hidden min-w-0 items-center gap-1.5 overflow-hidden xl:flex">
+      </div>
+
+      {/* Row 2: context pills + primary actions */}
+      <div className="flex h-8 items-center gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+          {inboxName ? (
+            <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-(--inbox-hover) px-2 text-xs font-medium tracking-[-0.1px] text-(--inbox-text-strong)">
+              <Inbox className="size-3.5 text-(--inbox-text-subtle)" aria-hidden />
+              {inboxName}
+            </span>
+          ) : null}
+          <span className="shrink-0 rounded-full border border-(--inbox-border) bg-(--inbox-surface) px-2 py-0.5 text-xs font-medium text-(--inbox-text)">
+            {STATUS_LABELS[thread.status]}
+          </span>
           {thread.labels.map((label) => {
             const accent = LABEL_ACCENT_STYLES[label.accent];
             return (
@@ -146,89 +244,9 @@ export function ConversationHeader({
             );
           })}
         </span>
-      </div>
-
-      {/* Actions */}
-      <div className="flex shrink-0 items-center gap-1.5">
-        {/* Overflow: priority, read state, status moves, labels */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className={ICON_CONTROL}
-            aria-label="More conversation actions"
-            disabled={overflowBusy}
-          >
-            {overflowBusy ? (
-              <Spinner className="size-3.5" />
-            ) : (
-              <EllipsisVertical className="size-4" aria-hidden />
-            )}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className={MENU} align="end">
-            <DropdownMenuItem
-              className={MENU_ITEM}
-              onClick={() => void actions.setPriority(isUrgent ? "normal" : "urgent")}
-            >
-              <TriangleAlert
-                className={`size-4 ${isUrgent ? "text-destructive" : "text-(--inbox-text-subtle)"}`}
-                aria-hidden
-              />
-              {isUrgent ? "Remove urgent" : "Mark urgent"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className={MENU_ITEM}
-              onClick={() => void actions.setUnread(!thread.unread)}
-            >
-              {thread.unread ? (
-                <MailOpen className="size-4 text-(--inbox-text-subtle)" aria-hidden />
-              ) : (
-                <Mail className="size-4 text-(--inbox-text-subtle)" aria-hidden />
-              )}
-              {thread.unread ? "Mark as read" : "Mark as unread"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-medium text-(--inbox-text-muted)">
-              Status
-            </DropdownMenuLabel>
-            {(["open", "waiting"] as const).map((status) => (
-              <DropdownMenuItem
-                key={status}
-                className={MENU_ITEM}
-                onClick={() => void actions.setStatus(status)}
-              >
-                {STATUS_LABELS[status]}
-                {status === thread.status ? (
-                  <Check className="ml-auto size-3.5 text-(--inbox-primary)" aria-hidden />
-                ) : null}
-              </DropdownMenuItem>
-            ))}
-            {thread.labels.length > 0 ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs font-medium text-(--inbox-text-muted)">
-                  Labels
-                </DropdownMenuLabel>
-                {thread.labels.map((label) => (
-                  <DropdownMenuCheckboxItem
-                    key={label.id}
-                    checked
-                    onCheckedChange={(checked) => toggleLabel(label.id, checked)}
-                    className={MENU_ITEM}
-                  >
-                    <span
-                      className="size-1.5 rounded-full"
-                      style={{ backgroundColor: LABEL_ACCENT_STYLES[label.accent].dot }}
-                      aria-hidden
-                    />
-                    {label.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Live presence */}
-        <ConversationViewers viewers={viewers} />
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {/* Live presence */}
+          <ConversationViewers viewers={viewers} />
 
         {/* Assignment */}
         <DropdownMenu>
@@ -277,21 +295,8 @@ export function ConversationHeader({
             <CircleCheck className="size-4" aria-hidden />
           )}
           Done
-        </button>
-
-        <span className="h-4 w-px bg-(--inbox-border)" aria-hidden />
-
-        {/* Company context toggle */}
-        <button
-          type="button"
-          ref={panelTriggerRef}
-          aria-label="Company details"
-          aria-expanded={panelOpen}
-          onClick={onTogglePanel}
-          className={`${ICON_CONTROL} ${panelOpen ? "bg-(--inbox-active) text-(--inbox-text)" : ""}`}
-        >
-          <PanelRight className="size-4" aria-hidden />
-        </button>
+          </button>
+        </span>
       </div>
     </header>
   );
