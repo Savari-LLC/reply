@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { INITIAL_OPERATIONS, TOAST_IDS } from "./constants";
+import type { WorkspaceSwitcherData } from "./components/workspace-switcher";
 import { InboxScreen } from "./inbox-screen";
 import type { InboxController, LoadScope } from "./model";
 import type {
@@ -196,6 +197,10 @@ export function ConvexInboxPage() {
   const [presence, setPresence] = useState<PresenceEntry[]>([]);
   const inboxes = useQuery(api.inbox.listInboxes, {});
   const teammateRows = useQuery(api.inbox.listTeammates, {});
+  const currentWorkspace = useQuery(api.workspaces.getCurrent, {});
+  const myWorkspaces = useQuery(api.workspaces.listMine, {});
+  const switchWorkspace = useMutation(api.workspaces.switchTo);
+  const createWorkspace = useMutation(api.workspaces.create);
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const threadRows = useQuery(
@@ -589,6 +594,35 @@ export function ConvexInboxPage() {
     ? { name: profile.name, imageUrl: profile.imageUrl ?? undefined }
     : undefined;
 
+  // Switching or creating a workspace re-points `getCurrent`; the route
+  // remounts this page (keyed by workspace id) so all inbox state resets.
+  const workspaceSwitcher = useMemo<WorkspaceSwitcherData | undefined>(() => {
+    if (!currentWorkspace) return undefined;
+    return {
+      name: currentWorkspace.workspace.name,
+      workspaces: (myWorkspaces ?? []).map((workspace) => ({
+        id: workspace._id,
+        name: workspace.name,
+        isActive: workspace.isActive,
+      })),
+      onSwitch: async (workspaceId) => {
+        try {
+          const next = myWorkspaces?.find((workspace) => workspace._id === workspaceId);
+          await switchWorkspace({ workspaceId: workspaceId as Id<"workspaces"> });
+          toast.success(`Switched to ${next?.name ?? "workspace"}`, {
+            id: TOAST_IDS.workspace,
+          });
+        } catch {
+          toast.error("The workspace could not be switched.", { id: TOAST_IDS.workspace });
+        }
+      },
+      onCreate: async (name) => {
+        await createWorkspace({ name });
+        toast.success(`Created ${name.trim()}`, { id: TOAST_IDS.workspace });
+      },
+    };
+  }, [currentWorkspace, myWorkspaces, switchWorkspace, createWorkspace]);
+
   // Presence resets when the selected thread changes (keyed reporter), so
   // stale viewers from the previous thread never flash in the header.
   const viewers = useMemo<ThreadViewer[]>(
@@ -620,6 +654,7 @@ export function ConvexInboxPage() {
         currentUser={railUser}
         onSignOut={() => void signOut()}
         viewers={viewers}
+        workspace={workspaceSwitcher}
       />
     </>
   );

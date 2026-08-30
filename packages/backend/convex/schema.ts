@@ -43,6 +43,9 @@ export default defineSchema({
     workspaceId: v.id("workspaces"),
     userId: v.id("users"),
     role: v.union(v.literal("admin"), v.literal("member")),
+    // When this membership was last made the user's active workspace; the
+    // highest value wins. Rows predating multi-workspace have none.
+    activeAt: v.optional(v.number()),
   })
     .index("by_workspaceId_and_userId", ["workspaceId", "userId"])
     .index("by_workspaceId", ["workspaceId"])

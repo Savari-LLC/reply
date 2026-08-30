@@ -44,13 +44,38 @@ export type WorkspaceContext = {
   workspace: Doc<"workspaces">;
 };
 
+/**
+ * A user can belong to several workspaces; the one they last switched to
+ * (highest `activeAt`, falling back to the oldest membership) is active.
+ */
+export async function getActiveMembership(
+  ctx: Pick<MutationCtx | QueryCtx, "db">,
+  userId: Doc<"users">["_id"],
+): Promise<Doc<"memberships"> | null> {
+  const memberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .take(100);
+  let active: Doc<"memberships"> | null = null;
+  for (const membership of memberships) {
+    if (
+      active === null ||
+      (membership.activeAt ?? 0) > (active.activeAt ?? 0) ||
+      // Same-instant writes (e.g. two creates in one transaction batch):
+      // the newer membership wins.
+      ((membership.activeAt ?? 0) === (active.activeAt ?? 0) &&
+        membership._creationTime > active._creationTime)
+    ) {
+      active = membership;
+    }
+  }
+  return active;
+}
+
 /** Resolves the caller's workspace from their identity; never from arguments. */
 export async function requireWorkspaceContext(ctx: DatabaseAuthCtx): Promise<WorkspaceContext> {
   const user = await requireCurrentUser(ctx);
-  const membership = await ctx.db
-    .query("memberships")
-    .withIndex("by_userId", (q) => q.eq("userId", user._id))
-    .unique();
+  const membership = await getActiveMembership(ctx, user._id);
   if (membership === null) {
     throw new Error("Join a workspace to continue");
   }
