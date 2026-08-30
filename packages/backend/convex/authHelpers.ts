@@ -37,3 +37,34 @@ export async function requireCurrentUser(ctx: DatabaseAuthCtx): Promise<Doc<"use
   }
   return user;
 }
+
+export type WorkspaceContext = {
+  user: Doc<"users">;
+  membership: Doc<"memberships">;
+  workspace: Doc<"workspaces">;
+};
+
+/** Resolves the caller's workspace from their identity; never from arguments. */
+export async function requireWorkspaceContext(ctx: DatabaseAuthCtx): Promise<WorkspaceContext> {
+  const user = await requireCurrentUser(ctx);
+  const membership = await ctx.db
+    .query("memberships")
+    .withIndex("by_userId", (q) => q.eq("userId", user._id))
+    .unique();
+  if (membership === null) {
+    throw new Error("Join a workspace to continue");
+  }
+  const workspace = await ctx.db.get(membership.workspaceId);
+  if (workspace === null) {
+    throw new Error("Workspace not found");
+  }
+  return { user, membership, workspace };
+}
+
+export async function requireWorkspaceAdmin(ctx: DatabaseAuthCtx): Promise<WorkspaceContext> {
+  const context = await requireWorkspaceContext(ctx);
+  if (context.membership.role !== "admin") {
+    throw new Error("Only a workspace admin can do this");
+  }
+  return context;
+}

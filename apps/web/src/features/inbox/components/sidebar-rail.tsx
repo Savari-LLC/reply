@@ -6,14 +6,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@reply/ui/components/dropdown-menu";
+import { Link } from "@tanstack/react-router";
 import { Calendar, Inbox as InboxIcon, LogOut, PanelLeft, Settings } from "lucide-react";
 
 import { getAvatarTint, getInitials } from "../utils";
 
-const RAIL_ICONS = [
-  { label: "Inbox", Icon: InboxIcon, active: true },
-  { label: "Calendar", Icon: Calendar, active: false },
-  { label: "Settings", Icon: Settings, active: false },
+export type RailSection = "inbox" | "settings";
+
+const RAIL_ICONS: Array<{
+  label: string;
+  Icon: typeof InboxIcon;
+  section?: RailSection;
+  to?: string;
+}> = [
+  { label: "Inbox", Icon: InboxIcon, section: "inbox", to: "/inbox" },
+  { label: "Calendar", Icon: Calendar },
+  { label: "Settings", Icon: Settings, section: "settings", to: "/settings" },
 ];
 
 export type RailUser = {
@@ -25,6 +33,8 @@ type SidebarRailProps = {
   /** Signed-in user; falls back to a static placeholder in fixture mode. */
   user?: RailUser;
   onSignOut?: () => void;
+  /** Which rail destination is active; defaults to the inbox. */
+  activeSection?: RailSection;
 };
 
 function RailAvatar({ user }: { user?: RailUser }) {
@@ -53,7 +63,7 @@ function RailAvatar({ user }: { user?: RailUser }) {
 }
 
 /** 48px utility rail: logo slot, icon group, spacer, and the current-user avatar. */
-export function SidebarRail({ user, onSignOut }: SidebarRailProps) {
+export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: SidebarRailProps) {
   const accountLabel = user ? `Signed in as ${user.name}` : "Signed in";
 
   return (
@@ -64,20 +74,34 @@ export function SidebarRail({ user, onSignOut }: SidebarRailProps) {
         </span>
       </div>
       <div className="flex flex-col gap-1.5 p-2">
-        {RAIL_ICONS.map(({ label, Icon, active }) => (
-          <span
-            key={label}
-            title={label}
-            className={`flex size-8 items-center justify-center rounded-lg ${
-              active
-                ? "bg-(--inbox-action-secondary-hover) text-(--inbox-text)"
-                : "text-(--inbox-text-subtle)"
-            }`}
-          >
-            <Icon className="size-4" aria-hidden />
-            <span className="sr-only">{label}</span>
-          </span>
-        ))}
+        {RAIL_ICONS.map(({ label, Icon, section, to }) => {
+          const active = section !== undefined && section === activeSection;
+          const className = `flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
+            active
+              ? "bg-(--inbox-action-secondary-hover) text-(--inbox-text)"
+              : "text-(--inbox-text-subtle)"
+          }`;
+          if (to) {
+            return (
+              <Link
+                key={label}
+                to={to}
+                title={label}
+                aria-current={active ? "page" : undefined}
+                className={`${className} hover:bg-(--inbox-hover) hover:text-(--inbox-text)`}
+              >
+                <Icon className="size-4" aria-hidden />
+                <span className="sr-only">{label}</span>
+              </Link>
+            );
+          }
+          return (
+            <span key={label} title={`${label} (coming soon)`} className={className}>
+              <Icon className="size-4" aria-hidden />
+              <span className="sr-only">{label} (coming soon)</span>
+            </span>
+          );
+        })}
       </div>
       <div className="min-h-0 flex-1" />
       <div className="px-2 pb-3 pt-2">

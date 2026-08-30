@@ -71,18 +71,25 @@ export default defineSchema({
     .index("by_workspaceId_and_inboxId", ["workspaceId", "inboxId"])
     .index("by_userId", ["userId"]),
 
+  // Shared inboxes belong to the whole workspace; personal inboxes are owned
+  // by one member (`ownerId`) and are only visible to that owner. Rows
+  // predating the `kind` field are shared.
   inboxes: defineTable({
     workspaceId: v.id("workspaces"),
     name: v.string(),
+    kind: v.optional(v.union(v.literal("shared"), v.literal("personal"))),
+    ownerId: v.optional(v.id("users")),
   })
     .index("by_workspaceId", ["workspaceId"])
-    .index("by_workspaceId_and_name", ["workspaceId", "name"]),
+    .index("by_workspaceId_and_name", ["workspaceId", "name"])
+    .index("by_workspaceId_and_ownerId", ["workspaceId", "ownerId"]),
 
   // Simulated email connectors. A channel delivers into exactly one inbox.
+  // The "demo" provider seeds sample conversations into its inbox.
   channels: defineTable({
     workspaceId: v.id("workspaces"),
     inboxId: v.id("inboxes"),
-    provider: v.union(v.literal("gmail"), v.literal("outlook")),
+    provider: v.union(v.literal("gmail"), v.literal("outlook"), v.literal("demo")),
     emailAddress: v.string(),
     displayName: v.string(),
     status: v.union(v.literal("connected"), v.literal("disconnected")),

@@ -105,7 +105,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       }));
       return;
     }
-    const selectedInboxId = FIXTURE_INBOXES[0]!.id;
+    const selectedInboxId = FIXTURE_INBOXES.find((inbox) => inbox.hasChannel)!.id;
     setState((prev) => ({
       ...prev,
       screenStatus: "ready",
@@ -347,7 +347,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
     const retryLoad = async (scope: LoadScope) => {
       if (scope === "screen") return loadScreen();
       if (scope === "list") {
-        const inboxId = state.selectedInboxId ?? FIXTURE_INBOXES[0]!.id;
+        const inboxId = state.selectedInboxId ?? FIXTURE_INBOXES.find((inbox) => inbox.hasChannel)!.id;
         return loadList(inboxId);
       }
       if (state.selectedThreadId) return loadThread(state.selectedThreadId);
