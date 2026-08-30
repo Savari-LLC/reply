@@ -9,11 +9,11 @@ The tenant boundary. All product data belongs to exactly one workspace.
 _Avoid_: Organization, team, account
 
 **Inbox**:
-A named work queue inside a workspace (e.g. Sales, Accounts, Support). Users work inboxes; channels feed them.
+A named work queue inside a workspace (e.g. Sales, Accounts, Support) and the only container members work in. A shared inbox belongs to the team; a personal inbox is visible only to its owner. Channels are connected from the inbox and feed it.
 _Avoid_: Folder, mailbox, queue
 
 **Channel**:
-A connected email source (e.g. a Gmail or Outlook address) that delivers mail into exactly one inbox. Demo channels are simulated connectors; no real OAuth exists.
+A connected source of conversations (Gmail, Outlook, WhatsApp, or SMS) belonging to exactly one inbox, addressed by mailbox or phone number. A channel has no visibility of its own: it inherits the inbox's kind and access. Provider authorization is simulated, and each connection is backed by a sample dataset.
 _Avoid_: Connector, integration, account
 
 **Thread**:

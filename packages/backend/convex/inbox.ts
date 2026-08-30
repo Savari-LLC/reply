@@ -5,10 +5,8 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { requireWorkspaceContext, type WorkspaceContext } from "./authHelpers";
 import {
   canAccessInbox,
-  canUseChannel,
   ensurePersonalInbox,
-  getLinkedChannels,
-  getLinkedInboxes,
+  getInboxChannels,
   inboxKind,
 } from "./lib/access";
 
@@ -68,23 +66,23 @@ async function threadSummary(
   };
 }
 
-/**
- * A member may act on a thread when they can use its channel or when the
- * channel is linked into an inbox they can access.
- */
+/** The thread's channel names its inbox, and the inbox decides access. */
+async function threadInbox(
+  ctx: QueryCtx,
+  thread: Doc<"threads">,
+): Promise<Doc<"inboxes"> | null> {
+  const channel = await ctx.db.get(thread.channelId);
+  return channel ? await ctx.db.get(channel.inboxId) : null;
+}
+
 async function canAccessThread(
   ctx: QueryCtx,
   context: WorkspaceContext,
   thread: Doc<"threads">,
 ): Promise<boolean> {
   if (thread.workspaceId !== context.workspace._id) return false;
-  const channel = await ctx.db.get(thread.channelId);
-  if (!channel) return false;
-  if (await canUseChannel(ctx, context.membership, channel)) return true;
-  for (const inbox of await getLinkedInboxes(ctx, channel._id)) {
-    if (await canAccessInbox(ctx, context.membership, inbox)) return true;
-  }
-  return false;
+  const inbox = await threadInbox(ctx, thread);
+  return inbox !== null && (await canAccessInbox(ctx, context.membership, inbox));
 }
 
 async function requireThread(
@@ -103,7 +101,7 @@ async function threadsForInbox(
   ctx: QueryCtx,
   inboxId: Id<"inboxes">,
 ): Promise<Doc<"threads">[]> {
-  const channels = await getLinkedChannels(ctx, inboxId);
+  const channels = await getInboxChannels(ctx, inboxId);
   const threads: Doc<"threads">[] = [];
   for (const channel of channels) {
     const channelThreads = await ctx.db
@@ -150,7 +148,7 @@ export const listInboxes = query({
     });
     return await Promise.all(
       visible.map(async (inbox) => {
-        const channels = await getLinkedChannels(ctx, inbox._id);
+        const channels = await getInboxChannels(ctx, inbox._id);
         const inboxThreads = await threadsForInbox(ctx, inbox._id);
         let unreadCount = 0;
         for (const thread of inboxThreads) {
@@ -163,7 +161,7 @@ export const listInboxes = query({
           channels: channels.map((channel) => ({
             _id: channel._id,
             provider: channel.provider,
-            displayName: channel.displayName,
+            address: channel.address,
             status: channel.status,
           })),
           openCount: inboxThreads.filter((thread) => thread.status === "open").length,
@@ -205,15 +203,7 @@ export const getThread = query({
     if (!threadId) return null;
     const thread = await ctx.db.get(threadId);
     if (!thread || !(await canAccessThread(ctx, context, thread))) return null;
-    // Present the thread under the first linked inbox the caller can access.
-    let inbox: Doc<"inboxes"> | null = null;
-    for (const candidate of await getLinkedInboxes(ctx, thread.channelId)) {
-      if (await canAccessInbox(ctx, context.membership, candidate)) {
-        inbox = candidate;
-        break;
-      }
-    }
-    const channel = await ctx.db.get(thread.channelId);
+    const inbox = await threadInbox(ctx, thread);
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_threadId_and_sentAt", (q) => q.eq("threadId", thread._id))
@@ -227,7 +217,7 @@ export const getThread = query({
       .unique();
     return {
       ...(await threadSummary(ctx, context.user._id, thread, inbox?._id ?? null)),
-      inboxName: inbox?.name ?? channel?.displayName ?? "Inbox",
+      inboxName: inbox?.name ?? "Inbox",
       companyProfile: companyProfile
         ? {
             name: companyProfile.name,

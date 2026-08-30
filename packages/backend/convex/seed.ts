@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
+import type { ChannelProvider } from "./lib/providers";
 
 const MINUTE = 60_000;
 
@@ -747,20 +748,20 @@ async function ensureCompanyProfiles(
 }
 
 /**
- * Creates a demo channel carrying one sample dataset. Conversations belong to
- * the channel; inbox links happen separately. The caller is responsible for
- * authorization; `actorId` receives read state matching the dataset's unread
- * story.
+ * Connects a channel to an inbox and backs it with one sample dataset.
+ * Conversations belong to the channel, which belongs to the inbox. The caller
+ * is responsible for authorization; `actorId` receives read state matching the
+ * dataset's unread story.
  */
 export async function createSampleChannel(
   ctx: MutationCtx,
   args: {
     workspaceId: Id<"workspaces">;
     actorId: Id<"users">;
+    inboxId: Id<"inboxes">;
+    provider: ChannelProvider;
+    address: string;
     dataset: SampleDataset;
-    displayName: string;
-    emailAddress: string;
-    kind: "shared" | "personal";
   },
 ): Promise<{ channelId: Id<"channels">; threadCount: number; messageCount: number }> {
   const { workspaceId, actorId, dataset } = args;
@@ -774,12 +775,10 @@ export async function createSampleChannel(
 
   const channelId = await ctx.db.insert("channels", {
     workspaceId,
-    provider: "demo",
-    emailAddress: args.emailAddress,
-    displayName: args.displayName,
+    inboxId: args.inboxId,
+    provider: args.provider,
+    address: args.address,
     status: "connected",
-    kind: args.kind,
-    ownerId: args.kind === "personal" ? actorId : undefined,
   });
 
   const now = Date.now();

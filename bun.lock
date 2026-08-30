@@ -20,6 +20,7 @@
       "name": "web",
       "dependencies": {
         "@convex-dev/auth": "^2.0.0-alpha.1",
+        "@convex-dev/presence": "0.4.0",
         "@convex-dev/react-query": "^0.1.0",
         "@fontsource-variable/inter": "5.2.8",
         "@react-email/editor": "1.7.2",
@@ -63,6 +64,7 @@
         "@convex-dev/agent": "^0.7.1",
         "@convex-dev/ai-sdk-provider": "^0.1.0",
         "@convex-dev/auth": "^2.0.0-alpha.1",
+        "@convex-dev/presence": "0.4.0",
         "@convex-dev/rate-limiter": "0.3.2",
         "@convex-dev/resend": "0.2.7",
         "ai": "^7.0.84",
@@ -236,6 +238,8 @@
     "@convex-dev/auth": ["@convex-dev/auth@2.0.0-alpha.1", "", { "dependencies": { "@babel/code-frame": "^7.29.7", "@convex-dev/batch-worker": "^0.3.0", "@convex-dev/rate-limiter": "^0.3.2", "argon2id-wasm": "0.0.0-alpha.2", "chalk": "^5.6.2", "commander": "^14.0.2", "cookie": "1.1.1", "jose": "^5.2.2", "ora": "^9.4.1" }, "peerDependencies": { "convex": "^1.43.0", "next": "^16.0.0", "react": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["next", "react"], "bin": { "auth": "dist/cli/init.js" } }, "sha512-wzOKwXm3CAcCgTTFug+8RQ6LDsOHc70hIUlW55/QkpnE9I79624exgAiCamjLjnGRF4PSsXpfshX74L6dpaHIw=="],
 
     "@convex-dev/batch-worker": ["@convex-dev/batch-worker@0.3.2", "", { "dependencies": { "convex-helpers": "^0.1.119" }, "peerDependencies": { "convex": "^1.43.0", "react": "^18.3.1 || ^19.0.0" } }, "sha512-mvruYwRV6oJJFgN1x2JaHeuN9CyjpA1FAk0iOTta4kvN6GWHSUDOxGMjFQ2L20edCgPXilqMVB6Ua5enjXqHlA=="],
+
+    "@convex-dev/presence": ["@convex-dev/presence@0.4.0", "", { "dependencies": { "@convex-dev/batch-worker": "^0.2.0" }, "peerDependencies": { "convex": "^1.36.1", "expo-crypto": ">=14.1.0", "react": "~18.3.1 || ^19.0.0", "react-dom": "~18.3.1 || ^19.0.0", "react-native": ">=0.79.0" }, "optionalPeers": ["expo-crypto", "react-native"] }, "sha512-T1f2aHyS2D2dxvMnvY+qSJBIRG0W7ph8+mgOvZif52JLlLNscCHTangAgNWR4VLYGhXFFDxwSSpdh7vxzA/hPQ=="],
 
     "@convex-dev/rate-limiter": ["@convex-dev/rate-limiter@0.3.2", "", { "peerDependencies": { "convex": "^1.24.8", "react": "^18.2.0 || ^19.0.0" }, "optionalPeers": ["react"] }, "sha512-+oBPsBfFbzdxiF/9XaaTQmVnvDlvEfg/c69/v8LxTbw4VLuiflIKlfnPQL8OS0azXQQ11hcPWHmU8ytFmHKDXA=="],
 
@@ -1628,6 +1632,8 @@
     "@babel/helper-compilation-targets/lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
 
     "@base-ui/utils/reselect": ["reselect@5.3.0", "", {}, "sha512-XGoLeRAVzUTcJ1qkxPQhDJyIZ5d6zzZD9nT7AEZOaaU9UbWclhycElmhO+VD5bFeLuzhPBaOV2oXC8uG35ZSpg=="],
+
+    "@convex-dev/presence/@convex-dev/batch-worker": ["@convex-dev/batch-worker@0.2.1", "", { "peerDependencies": { "convex": "^1.36.1", "react": "^18.3.1 || ^19.0.0" } }, "sha512-QEDW6XmT+SmBJAmNqyl0QAEmJ4yMKJAIoJ+LntsA8KY5gYP+UhSFvTEMCvo177RZxOR/cfkZ3R+4S/UBaj/JnQ=="],
 
     "@convex-dev/workpool/@convex-dev/batch-worker": ["@convex-dev/batch-worker@0.2.1", "", { "peerDependencies": { "convex": "^1.36.1", "react": "^18.3.1 || ^19.0.0" } }, "sha512-QEDW6XmT+SmBJAmNqyl0QAEmJ4yMKJAIoJ+LntsA8KY5gYP+UhSFvTEMCvo177RZxOR/cfkZ3R+4S/UBaj/JnQ=="],
 

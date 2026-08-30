@@ -33,8 +33,8 @@ async function deleteThreadCascade(ctx: MutationCtx, thread: Doc<"threads">) {
 }
 
 /**
- * Deletes a channel with its threads, inbox links, and access grants.
- * Conversations live in the channel, so they leave with it.
+ * Disconnects a channel and deletes its conversations. Conversations live in
+ * the channel, so they leave with it.
  */
 export async function deleteChannelCascade(ctx: MutationCtx, channel: Doc<"channels">) {
   const channelThreads = await ctx.db
@@ -42,31 +42,19 @@ export async function deleteChannelCascade(ctx: MutationCtx, channel: Doc<"chann
     .withIndex("by_channelId_and_lastMessageAt", (q) => q.eq("channelId", channel._id))
     .collect();
   for (const thread of channelThreads) await deleteThreadCascade(ctx, thread);
-  const links = await ctx.db
-    .query("inboxChannels")
-    .withIndex("by_channelId", (q) => q.eq("channelId", channel._id))
-    .collect();
-  for (const link of links) await ctx.db.delete(link._id);
-  const grants = await ctx.db
-    .query("channelAccess")
-    .withIndex("by_workspaceId_and_channelId", (q) =>
-      q.eq("workspaceId", channel.workspaceId).eq("channelId", channel._id),
-    )
-    .collect();
-  for (const grant of grants) await ctx.db.delete(grant._id);
   await ctx.db.delete(channel._id);
 }
 
 /**
- * Deletes an inbox and its links/grants. Channels (and their conversations)
- * are workspace-level and survive; they stay reachable from other inboxes.
+ * Deletes an inbox with the channels it owns, their conversations, and its
+ * access grants. Nothing outlives the inbox.
  */
 export async function deleteInboxCascade(ctx: MutationCtx, inbox: Doc<"inboxes">) {
-  const links = await ctx.db
-    .query("inboxChannels")
-    .withIndex("by_inboxId_and_channelId", (q) => q.eq("inboxId", inbox._id))
+  const channels = await ctx.db
+    .query("channels")
+    .withIndex("by_inboxId", (q) => q.eq("inboxId", inbox._id))
     .collect();
-  for (const link of links) await ctx.db.delete(link._id);
+  for (const channel of channels) await deleteChannelCascade(ctx, channel);
   const grants = await ctx.db
     .query("inboxAccess")
     .withIndex("by_workspaceId_and_inboxId", (q) =>
