@@ -1,13 +1,12 @@
 import { api } from "@reply/backend/convex/_generated/api";
 import { Button } from "@reply/ui/components/button";
 import { Spinner } from "@reply/ui/components/spinner";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { Navigate, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { TriangleAlert } from "lucide-react";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
-import { AuthPanel } from "@/components/auth-panel";
 import { AcceptInvitationPage, CreateWorkspacePage, InviteMembersPage } from "@/components/workspace-onboarding";
 import { FIXTURE_SCENARIOS, type FixtureScenario } from "@/features/inbox/constants";
 import { ConvexInboxPage } from "@/features/inbox/convex-inbox-page";
@@ -61,7 +60,7 @@ function AuthenticatedInbox({ invite }: { invite?: string }) {
     return <RouteLoading label="Restoring your session…" />;
   }
   if (!isAuthenticated) {
-    return <AuthPanel invited={invite !== undefined} />;
+    return <Navigate to="/auth" search={invite ? { invite } : {}} replace />;
   }
   if (invite !== undefined) {
     return <AcceptInvitationPage token={invite} onAccepted={acceptInvitation} onDismiss={clearInvitation} />;
@@ -83,7 +82,8 @@ function AuthenticatedInbox({ invite }: { invite?: string }) {
       />
     );
   }
-  return <ConvexInboxPage />;
+  // Keyed by workspace so switching workspaces resets all inbox state.
+  return <ConvexInboxPage key={currentWorkspace.workspace._id} />;
 }
 
 function RouteLoading({ label }: { label: string }) {

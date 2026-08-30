@@ -13,7 +13,7 @@ A named work queue inside a workspace (e.g. Sales, Accounts, Support) and the on
 _Avoid_: Folder, mailbox, queue
 
 **Channel**:
-A connected source of conversations (Gmail, Outlook, WhatsApp, or SMS) belonging to exactly one inbox, addressed by mailbox or phone number. A channel has no visibility of its own: it inherits the inbox's kind and access. Provider authorization is simulated, and each connection is backed by a sample dataset.
+A connected source of conversations (Gmail, Outlook, WhatsApp, or SMS) belonging to exactly one inbox, addressed by mailbox or phone number. A channel has no visibility of its own: it inherits the inbox's kind and access. Gmail and Outlook use read-only provider authorization; WhatsApp and SMS currently use sample data.
 _Avoid_: Connector, integration, account
 
 **Thread**:

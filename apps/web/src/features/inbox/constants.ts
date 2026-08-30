@@ -1,6 +1,7 @@
 import type {
   EmailCategory,
   InvestigationStatus,
+  InboxView,
   LabelAccent,
   OperationKey,
   OperationState,
@@ -23,6 +24,15 @@ export const FILTER_LABELS: Record<ThreadFilter, string> = {
   open: "Open",
   waiting: "Waiting",
   closed: "Done",
+};
+
+/** Sidebar view labels; "all" renders as the inbox name itself. */
+export const INBOX_VIEW_LABELS: Record<Exclude<InboxView, "all">, string> = {
+  open: "Open",
+  assigned: "Assigned",
+  done: "Done",
+  mentions: "Mentions",
+  sent: "Sent",
 };
 
 /** Decorative category accents from the Figma palette. Always paired with a text label. */
@@ -94,6 +104,7 @@ export const TOAST_IDS = {
   labels: "inbox-labels",
   simulate: "inbox-simulate",
   investigation: "inbox-investigation",
+  workspace: "inbox-workspace",
 } as const;
 
 /** Deterministic fixture scenarios, selectable via `?scenario=` in development. */

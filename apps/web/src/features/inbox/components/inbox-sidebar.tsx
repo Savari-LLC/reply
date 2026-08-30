@@ -1,10 +1,11 @@
 import {
-  AlarmClock,
+  AtSign,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Inbox as InboxIcon,
   Mail,
+  MailOpen,
   Plus,
   Search,
   Send,
@@ -13,17 +14,22 @@ import { useState } from "react";
 
 import { ReplyLogoMark } from "@/components/reply-logo";
 
-import { LABEL_ACCENT_STYLES } from "../constants";
-import type { InboxSummary } from "../types";
+import { INBOX_VIEW_LABELS, LABEL_ACCENT_STYLES } from "../constants";
+import type { InboxSummary, InboxView } from "../types";
 import { NewMessageDialog } from "./new-message-dialog";
 import { SidebarRail, type RailUser } from "./sidebar-rail";
+import { WorkspaceSwitcher, type WorkspaceSwitcherData } from "./workspace-switcher";
 
 type InboxSidebarProps = {
   inboxes: InboxSummary[];
   selectedInboxId: string | null;
-  onSelectInbox: (inboxId: string) => void;
+  selectedView: InboxView;
+  onSelectInbox: (inboxId: string, view?: InboxView) => void;
   currentUser?: RailUser;
   onSignOut?: () => void;
+  liveEmail?: boolean;
+  /** Live workspace switcher; fixture mode falls back to a static placeholder. */
+  workspace?: WorkspaceSwitcherData;
 };
 
 const ROW =
@@ -31,14 +37,15 @@ const ROW =
 const ROW_IDLE = "text-(--inbox-text) hover:bg-(--inbox-hover)";
 const ROW_SELECTED = "bg-(--inbox-surface) text-(--inbox-text-strong) shadow-(--inbox-shadow-sm)";
 
-/** Views under each shared inbox; a teammate will wire these to real filters. */
-const SHARED_VIEWS = ["Open", "Assigned", "Done"] as const;
+/** Views under each shared inbox, scoped server-side by `listThreads`. */
+const SHARED_VIEWS = ["open", "assigned", "done"] as const;
 
-/** Personal quick views from the Figma sidebar; UI-only for now. */
+/** Personal views under "Your inbox"; Mentions and Sent span every inbox. */
 const PERSONAL_VIEWS = [
-  { label: "Sent", Icon: Send },
-  { label: "Snoozed", Icon: AlarmClock },
-  { label: "Done", Icon: CheckCircle2 },
+  { view: "open", Icon: MailOpen },
+  { view: "done", Icon: CheckCircle2 },
+  { view: "mentions", Icon: AtSign },
+  { view: "sent", Icon: Send },
 ] as const;
 
 function CountBadge({ count }: { count: number }) {
@@ -55,9 +62,12 @@ function CountBadge({ count }: { count: number }) {
 export function InboxSidebar({
   inboxes,
   selectedInboxId,
+  selectedView,
   onSelectInbox,
   currentUser,
   onSignOut,
+  liveEmail = false,
+  workspace,
 }: InboxSidebarProps) {
   const [composerOpen, setComposerOpen] = useState(false);
   const personalInboxes = inboxes.filter((inbox) => inbox.kind === "personal");
@@ -68,18 +78,22 @@ export function InboxSidebar({
       <SidebarRail user={currentUser} onSignOut={onSignOut} />
       <div className="flex w-[clamp(184px,14vw,216px)] flex-col overflow-y-auto bg-(--inbox-nav)">
         <div className="flex flex-col gap-3 p-3">
-          <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-(--inbox-border) bg-(--inbox-surface) p-2">
-            <span
-              className="flex size-5 shrink-0 items-center justify-center rounded-md bg-[#0d9488]"
-              aria-hidden
-            >
-              <ReplyLogoMark className="h-3 w-auto text-white" />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm tracking-[-0.1px] text-(--inbox-text)">
-              Reply Workspace
-            </span>
-            <ChevronDown className="size-4 shrink-0 text-(--inbox-text-muted)" aria-hidden />
-          </div>
+          {workspace ? (
+            <WorkspaceSwitcher {...workspace} />
+          ) : (
+            <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-(--inbox-border) bg-(--inbox-surface) p-2">
+              <span
+                className="flex size-5 shrink-0 items-center justify-center rounded-md bg-[#0d9488]"
+                aria-hidden
+              >
+                <ReplyLogoMark className="h-3 w-auto text-white" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm tracking-[-0.1px] text-(--inbox-text)">
+                Reply Workspace
+              </span>
+              <ChevronDown className="size-4 shrink-0 text-(--inbox-text-muted)" aria-hidden />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
               Inbox
@@ -104,7 +118,7 @@ export function InboxSidebar({
         <div className="mx-3 h-px shrink-0 bg-(--inbox-border-subtle)" aria-hidden />
         <nav className="flex flex-col gap-0.5 px-3 py-2" aria-label="Inboxes">
           {personalInboxes.map((inbox) => {
-            const selected = inbox.id === selectedInboxId;
+            const selected = inbox.id === selectedInboxId && selectedView === "all";
             return (
               <button
                 key={inbox.id}
@@ -119,20 +133,25 @@ export function InboxSidebar({
               </button>
             );
           })}
-          {personalInboxes.length > 0
-            ? PERSONAL_VIEWS.map(({ label, Icon }) => (
+          {personalInboxes.map((inbox) =>
+            PERSONAL_VIEWS.map(({ view, Icon }) => {
+              const selected = inbox.id === selectedInboxId && selectedView === view;
+              return (
                 <button
-                  key={label}
+                  key={`${inbox.id}-${view}`}
                   type="button"
-                  title={`${label} (coming soon)`}
-                  className={`${ROW} ${ROW_IDLE}`}
+                  onClick={() => onSelectInbox(inbox.id, view)}
+                  aria-current={selected ? "true" : undefined}
+                  className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE}`}
                 >
                   <Icon className="size-4 shrink-0 text-(--inbox-text-subtle)" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-                  <span className="sr-only"> (coming soon)</span>
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {INBOX_VIEW_LABELS[view]}
+                  </span>
                 </button>
-              ))
-            : null}
+              );
+            }),
+          )}
 
           {sharedInboxes.length > 0 ? (
             <p className="px-3 pt-4 pb-1 text-xs font-medium tracking-[-0.1px] text-(--inbox-text-muted)">
@@ -143,31 +162,33 @@ export function InboxSidebar({
             <SharedInboxGroup
               key={inbox.id}
               inbox={inbox}
-              selected={inbox.id === selectedInboxId}
-              onSelect={() => onSelectInbox(inbox.id)}
+              selectedView={inbox.id === selectedInboxId ? selectedView : null}
+              onSelect={(view) => onSelectInbox(inbox.id, view)}
             />
           ))}
         </nav>
       </div>
-      <NewMessageDialog open={composerOpen} onOpenChange={setComposerOpen} />
+      <NewMessageDialog open={composerOpen} liveEmail={liveEmail} onOpenChange={setComposerOpen} />
     </div>
   );
 }
 
 /**
  * Shared inbox with collapsible Open/Assigned/Done views (Figma sidebar).
- * The views are UI-only for now; a teammate will wire them to real filters.
+ * Each view scopes the thread list server-side via `listThreads`.
  */
 function SharedInboxGroup({
   inbox,
-  selected,
+  selectedView,
   onSelect,
 }: {
   inbox: InboxSummary;
-  selected: boolean;
-  onSelect: () => void;
+  /** Active view when this inbox is selected; null when another inbox is. */
+  selectedView: InboxView | null;
+  onSelect: (view?: InboxView) => void;
 }) {
-  const [expanded, setExpanded] = useState(selected);
+  const selected = selectedView === "all";
+  const [expanded, setExpanded] = useState(selectedView !== null);
   const accent = LABEL_ACCENT_STYLES[inbox.accent];
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
@@ -205,17 +226,26 @@ function SharedInboxGroup({
       </div>
       {expanded ? (
         <div className="flex flex-col gap-0.5">
-          {SHARED_VIEWS.map((view) => (
-            <button
-              key={view}
-              type="button"
-              title={`${view} (coming soon)`}
-              className="flex h-8 w-full shrink-0 items-center rounded-lg pl-9 pr-3 text-xs tracking-[-0.1px] text-(--inbox-text) outline-none hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
-            >
-              <span className="min-w-0 flex-1 truncate text-left">{view}</span>
-              <span className="sr-only"> (coming soon)</span>
-            </button>
-          ))}
+          {SHARED_VIEWS.map((view) => {
+            const viewSelected = selectedView === view;
+            return (
+              <button
+                key={view}
+                type="button"
+                onClick={() => onSelect(view)}
+                aria-current={viewSelected ? "true" : undefined}
+                className={`flex h-8 w-full shrink-0 items-center rounded-lg pl-9 pr-3 text-xs tracking-[-0.1px] outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
+                  viewSelected
+                    ? "bg-(--inbox-surface) font-medium text-(--inbox-text-strong) shadow-(--inbox-shadow-sm)"
+                    : "text-(--inbox-text) hover:bg-(--inbox-hover)"
+                }`}
+              >
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {INBOX_VIEW_LABELS[view]}
+                </span>
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>

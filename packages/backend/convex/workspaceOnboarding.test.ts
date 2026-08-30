@@ -53,7 +53,8 @@ describe("workspace onboarding", () => {
     const userId = await createUser(t, "maya");
     const asUser = t.withIdentity({ subject: userId });
     const workspaceId = await asUser.mutation(api.workspaces.create, { name: "  Acme   Support  " });
-    const repeatedId = await asUser.mutation(api.workspaces.create, { name: "Another workspace" });
+    // Retrying with the same name (double submit) must not duplicate the workspace.
+    const repeatedId = await asUser.mutation(api.workspaces.create, { name: "Acme Support" });
 
     expect(repeatedId).toBe(workspaceId);
     await expect(asUser.query(api.workspaces.getCurrent, {})).resolves.toMatchObject({
@@ -70,6 +71,39 @@ describe("workspace onboarding", () => {
       return inboxes.map((inbox) => inbox.name).sort();
     });
     expect(inboxNames).toEqual(["Accounts", "Sales", "Support", "Your inbox"]);
+  });
+
+  test("creates additional workspaces and switches between them", async () => {
+    const t = convexTest(schema, modules);
+    const userId = await createUser(t, "maya");
+    const asUser = t.withIdentity({ subject: userId });
+    const strangerId = await createUser(t, "stranger");
+
+    const firstId = await asUser.mutation(api.workspaces.create, { name: "First Co" });
+    const secondId = await asUser.mutation(api.workspaces.create, { name: "Second Co" });
+    expect(secondId).not.toBe(firstId);
+
+    // Creating a workspace makes it active.
+    await expect(asUser.query(api.workspaces.getCurrent, {})).resolves.toMatchObject({
+      workspace: { _id: secondId, name: "Second Co" },
+      membership: { userId, role: "admin" },
+    });
+    await expect(asUser.query(api.workspaces.listMine, {})).resolves.toEqual([
+      { _id: firstId, name: "First Co", role: "admin", isActive: false },
+      { _id: secondId, name: "Second Co", role: "admin", isActive: true },
+    ]);
+
+    await asUser.mutation(api.workspaces.switchTo, { workspaceId: firstId });
+    await expect(asUser.query(api.workspaces.getCurrent, {})).resolves.toMatchObject({
+      workspace: { _id: firstId, name: "First Co" },
+    });
+
+    // Only members of a workspace may switch into it.
+    await expect(
+      t.withIdentity({ subject: strangerId }).mutation(api.workspaces.switchTo, {
+        workspaceId: firstId,
+      }),
+    ).rejects.toThrow("You are not a member of that workspace");
   });
 
   test("accepts a single-use invitation and rejects reuse by another account", async () => {

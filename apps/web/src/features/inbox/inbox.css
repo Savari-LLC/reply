@@ -33,6 +33,11 @@
   --inbox-primary-text: #0f766e;
   --inbox-success: #22c55e;
 
+  /* Copilot / AI accent (the label-blue family). */
+  --inbox-ai: #0185ff;
+  --inbox-ai-text: #0e43a0;
+  --inbox-ai-soft: #d6ecff;
+
   /* Shadows (Figma DrS-sm and card shadow) */
   --inbox-shadow-sm:
     0 1px 1px rgba(135, 135, 135, 0.05), 0 2px 2px rgba(135, 135, 135, 0.04),
@@ -123,6 +128,107 @@ html:has(.inbox-root) body {
   color: var(--inbox-primary-text);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* Copilot "generating" overlay: covers only the editor section of the
+ * composer while a request is in flight. Three rounded-square layers rotate
+ * slowly below the surface line; because their radius is just under 50%,
+ * their top edges undulate like waves in the AI blue. */
+.inbox-ai-generating {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(214, 236, 255, 0.55), rgba(255, 255, 255, 0.92));
+  backdrop-filter: blur(2px);
+}
+
+.inbox-ai-wave {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 280%;
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 43%;
+  background: rgba(1, 133, 255, 0.1);
+  animation: inbox-ai-wave 9s linear infinite;
+  pointer-events: none;
+}
+
+.inbox-ai-wave:nth-child(2) {
+  top: 62%;
+  border-radius: 46%;
+  background: rgba(1, 133, 255, 0.14);
+  animation-duration: 13s;
+  animation-direction: reverse;
+}
+
+.inbox-ai-wave:nth-child(3) {
+  top: 66%;
+  border-radius: 41%;
+  background: rgba(14, 67, 160, 0.1);
+  animation-duration: 18s;
+}
+
+@keyframes inbox-ai-wave {
+  to {
+    rotate: 360deg;
+  }
+}
+
+.inbox-ai-sparkle {
+  animation: inbox-ai-sparkle 1.6s ease-in-out infinite;
+}
+
+@keyframes inbox-ai-sparkle {
+  0%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+  50% {
+    opacity: 0.55;
+    scale: 0.85;
+  }
+}
+
+/* Trailing "thinking" dots after the status label. */
+.inbox-ai-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.inbox-ai-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: inbox-ai-dot 1.2s ease-in-out infinite;
+}
+
+.inbox-ai-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.inbox-ai-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes inbox-ai-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    translate: 0 0;
+  }
+  30% {
+    opacity: 1;
+    translate: 0 -2px;
+  }
 }
 
 /* Rich outbound replies rendered inside the teal bubble. */

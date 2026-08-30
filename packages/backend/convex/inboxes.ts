@@ -18,6 +18,14 @@ const channelValidator = v.object({
   address: v.string(),
   status: v.union(v.literal("connected"), v.literal("disconnected")),
   threadCount: v.number(),
+  mailConnection: v.union(
+    v.object({
+      syncStatus: v.union(v.literal("idle"), v.literal("syncing"), v.literal("error")),
+      lastSyncedAt: v.union(v.number(), v.null()),
+      lastSyncError: v.union(v.string(), v.null()),
+    }),
+    v.null(),
+  ),
 });
 
 const settingsInboxValidator = v.object({
@@ -99,12 +107,26 @@ export const listSettings = query({
           )
           .collect();
         threadCount += channelThreads.length;
+        const mailConnection =
+          channel.provider === "gmail" || channel.provider === "outlook"
+            ? await ctx.db
+                .query("mailConnections")
+                .withIndex("by_channelId", (q) => q.eq("channelId", channel._id))
+                .unique()
+            : null;
         channelSummaries.push({
           _id: channel._id,
           provider: channel.provider,
           address: channel.address,
           status: channel.status,
           threadCount: channelThreads.length,
+          mailConnection: mailConnection
+            ? {
+                syncStatus: mailConnection.syncStatus,
+                lastSyncedAt: mailConnection.lastSyncedAt ?? null,
+                lastSyncError: mailConnection.lastSyncError ?? null,
+              }
+            : null,
         });
       }
       const grants =

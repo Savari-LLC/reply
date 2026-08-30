@@ -23,6 +23,11 @@ const app = defineApp({
     // Devin API key for automatic technical investigations; optional so the
     // app degrades to a clean "not configured" state without it.
     DEVIN_API_KEY: v.optional(v.string()),
+    MAIL_GOOGLE_CLIENT_ID: v.optional(v.string()),
+    MAIL_GOOGLE_CLIENT_SECRET: v.optional(v.string()),
+    MAIL_MICROSOFT_CLIENT_ID: v.optional(v.string()),
+    MAIL_MICROSOFT_CLIENT_SECRET: v.optional(v.string()),
+    MAIL_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),
   },
 });
 
