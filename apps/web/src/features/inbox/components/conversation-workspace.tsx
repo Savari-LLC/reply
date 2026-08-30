@@ -4,6 +4,7 @@ import { MailOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type {
+  CommentDraft,
   OperationKey,
   OperationState,
   Teammate,
@@ -11,6 +12,7 @@ import type {
   ThreadPaneStatus,
   ThreadPriority,
   ThreadStatus,
+  ThreadViewer,
 } from "../types";
 import { CompanyProfilePanel } from "./company-profile-panel";
 import { ConversationHeader } from "./conversation-header";
@@ -24,8 +26,9 @@ export type WorkspaceActions = {
   setUnread: (unread: boolean) => Promise<void>;
   setPriority: (priority: ThreadPriority) => Promise<void>;
   setLabels: (labelIds: string[]) => Promise<void>;
-  generateDraft: () => Promise<string>;
-  sendReply: (body: string) => Promise<void>;
+  generateDraft: (currentDraft?: string) => Promise<string>;
+  sendReply: (body: string, bodyHtml?: string) => Promise<void>;
+  addComment: (draft: CommentDraft) => Promise<void>;
   retry: () => Promise<void>;
 };
 
@@ -33,6 +36,9 @@ export type ConversationWorkspaceProps = {
   detail: ThreadDetail | null;
   status: ThreadPaneStatus;
   error?: string;
+  inboxName?: string;
+  /** Teammates currently viewing the selected thread (live presence). */
+  viewers?: ThreadViewer[];
   teammates: Teammate[];
   operations: Record<OperationKey, OperationState>;
   actions: WorkspaceActions;
@@ -48,12 +54,16 @@ export function ConversationWorkspace({
   detail,
   status,
   error,
+  inboxName,
+  viewers,
   teammates,
   operations,
   actions,
   headingFocusToken = 0,
 }: ConversationWorkspaceProps) {
   const [panelOpen, setPanelOpen] = useState(false);
+  // Collapsed by default; a Reply action opens the full composer.
+  const [composerExpanded, setComposerExpanded] = useState(false);
   const panelTriggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lastFocusToken = useRef(headingFocusToken);
@@ -79,13 +89,22 @@ export function ConversationWorkspace({
         aria-busy="true"
         aria-label="Loading conversation"
       >
-        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-(--inbox-border-subtle) px-4">
-          <Skeleton className="size-8 rounded-full" />
-          <Skeleton className="h-5 w-48 rounded-md" />
-          <div className="ml-auto flex items-center gap-1.5">
-            <Skeleton className="h-8 w-28 rounded-lg" />
-            <Skeleton className="h-8 w-20 rounded-lg" />
-            <Skeleton className="size-8 rounded-lg" />
+        <div className="flex shrink-0 flex-col gap-2 border-b border-(--inbox-border-subtle) px-4 py-3">
+          <div className="flex h-8 items-center gap-2">
+            <Skeleton className="size-8 rounded-full" />
+            <Skeleton className="h-5 w-48 rounded-md" />
+            <div className="ml-auto flex items-center gap-1.5">
+              <Skeleton className="size-8 rounded-lg" />
+              <Skeleton className="size-8 rounded-lg" />
+            </div>
+          </div>
+          <div className="flex h-8 items-center gap-2">
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <div className="ml-auto flex items-center gap-1.5">
+              <Skeleton className="h-8 w-28 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+            </div>
           </div>
         </div>
         <div className="flex-1 space-y-4 p-4">
@@ -138,11 +157,16 @@ export function ConversationWorkspace({
     );
   }
 
+  const companyStatus =
+    detail.companyStatus ?? (detail.company ? "ready" : "unavailable");
+
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Conversation">
       <ConversationHeader
         thread={detail.thread}
         headingRef={headingRef}
+        inboxName={inboxName}
+        viewers={viewers}
         teammates={teammates}
         operations={operations}
         actions={actions}
@@ -152,19 +176,37 @@ export function ConversationWorkspace({
       />
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <MessageTimeline threadId={detail.thread.id} messages={detail.messages} />
+          <MessageTimeline
+            threadId={detail.thread.id}
+            messages={detail.messages}
+            comments={detail.comments}
+            onReply={() => setComposerExpanded(true)}
+            companyChip={{
+              status: companyStatus,
+              name: detail.company?.name ?? detail.thread.companyName,
+              logoUrl: detail.company?.logoUrl,
+              onOpen: () => setPanelOpen(true),
+            }}
+          />
           {/* Keyed so a thread switch resets the local draft text. */}
           <ReplyComposer
             key={detail.thread.id}
+            thread={detail.thread}
+            teammates={teammates}
             draftState={operations.draft}
             sendState={operations.send}
+            commentState={operations.comment}
+            expanded={composerExpanded}
+            onExpandedChange={setComposerExpanded}
             onGenerateDraft={actions.generateDraft}
             onSendReply={actions.sendReply}
+            onAddComment={actions.addComment}
           />
         </div>
         {panelOpen ? (
           <CompanyProfilePanel
             company={detail.company}
+            status={companyStatus}
             thread={detail.thread}
             onClose={closePanel}
           />

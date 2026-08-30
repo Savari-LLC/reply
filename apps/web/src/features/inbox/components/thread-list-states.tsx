@@ -1,6 +1,6 @@
 import { Button } from "@reply/ui/components/button";
 import { Link } from "@tanstack/react-router";
-import { Cable, Inbox as InboxIcon, SearchX } from "lucide-react";
+import { Inbox as InboxIcon, Plug, SearchX } from "lucide-react";
 
 import { ThreadRowSkeleton } from "./inbox-shell-skeleton";
 
@@ -37,13 +37,14 @@ export function ThreadListEmptyInbox({
     return (
       <div className="flex flex-col items-center gap-1 px-4 py-12 text-center" role="status">
         <span className="mb-2 flex size-12 items-center justify-center rounded-full bg-(--inbox-hover)">
-          <Cable className="size-5 text-(--inbox-text-muted)" aria-hidden />
+          <Plug className="size-5 text-(--inbox-text-muted)" aria-hidden />
         </span>
         <p className="text-sm font-medium tracking-[-0.1px] text-(--inbox-text-strong)">
           No channel connected
         </p>
         <p className="text-xs tracking-[-0.1px] text-(--inbox-text-muted)">
-          Connect a channel to bring conversations into {inboxName}.
+          Connect a channel, or press Simulate above to deliver a demo email into{" "}
+          {inboxName}.
         </p>
         <Link
           to="/settings"
@@ -64,7 +65,7 @@ export function ThreadListEmptyInbox({
         You’re all caught up
       </p>
       <p className="text-xs tracking-[-0.1px] text-(--inbox-text-muted)">
-        No conversations in {inboxName}.
+        No conversations in {inboxName}. Press Simulate above to deliver a demo email.
       </p>
     </div>
   );

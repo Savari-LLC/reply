@@ -1,16 +1,23 @@
 import { v } from "convex/values";
 
-import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireWorkspaceAdmin, requireWorkspaceContext } from "./authHelpers";
-import { canAccessInbox, inboxKind } from "./lib/access";
+import {
+  canAccessInbox,
+  canManageInbox,
+  getInboxChannels,
+  inboxKind,
+} from "./lib/access";
 import { deleteInboxCascade } from "./lib/cascade";
+import { channelProviderValidator } from "./lib/providers";
 
 const channelValidator = v.object({
   _id: v.id("channels"),
-  provider: v.union(v.literal("gmail"), v.literal("outlook"), v.literal("demo")),
-  emailAddress: v.string(),
-  displayName: v.string(),
+  provider: channelProviderValidator,
+  address: v.string(),
   status: v.union(v.literal("connected"), v.literal("disconnected")),
+  threadCount: v.number(),
 });
 
 const settingsInboxValidator = v.object({
@@ -18,6 +25,7 @@ const settingsInboxValidator = v.object({
   name: v.string(),
   kind: v.union(v.literal("shared"), v.literal("personal")),
   isOwn: v.boolean(),
+  canManage: v.boolean(),
   threadCount: v.number(),
   channels: v.array(channelValidator),
   /** Members holding an access grant; only meaningful on shared inboxes. */
@@ -29,6 +37,37 @@ function normalizeInboxName(value: string) {
   if (name.length < 2) throw new Error("Inbox name must be at least 2 characters");
   if (name.length > 60) throw new Error("Inbox name must be at most 60 characters");
   return name;
+}
+
+/**
+ * Shared inbox names are unique across the workspace; personal inbox names are
+ * unique per owner, so two members can both keep a "Newsletters" inbox.
+ */
+async function requireNameAvailable(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  name: string,
+  scope: { kind: "shared" } | { kind: "personal"; ownerId: Id<"users"> },
+  ignoreId?: Id<"inboxes">,
+) {
+  const sameName = await ctx.db
+    .query("inboxes")
+    .withIndex("by_workspaceId_and_name", (q) =>
+      q.eq("workspaceId", workspaceId).eq("name", name),
+    )
+    .collect();
+  const clash = sameName.some((inbox) => {
+    if (inbox._id === ignoreId) return false;
+    if (inboxKind(inbox) !== scope.kind) return false;
+    return scope.kind === "shared" || inbox.ownerId === scope.ownerId;
+  });
+  if (clash) throw new Error(`An inbox named “${name}” already exists`);
+}
+
+function inboxScope(inbox: Doc<"inboxes">) {
+  return inboxKind(inbox) === "personal"
+    ? ({ kind: "personal", ownerId: inbox.ownerId! } as const)
+    : ({ kind: "shared" } as const);
 }
 
 /**
@@ -49,16 +88,25 @@ export const listSettings = query({
     const result = [];
     for (const inbox of inboxes) {
       if (!(await canAccessInbox(ctx, context.membership, inbox))) continue;
-      const channels = await ctx.db
-        .query("channels")
-        .withIndex("by_inboxId", (q) => q.eq("inboxId", inbox._id))
-        .collect();
-      const threads = await ctx.db
-        .query("threads")
-        .withIndex("by_inboxId_and_status_and_lastMessageAt", (q) =>
-          q.eq("inboxId", inbox._id),
-        )
-        .collect();
+      const channels = await getInboxChannels(ctx, inbox._id);
+      const channelSummaries = [];
+      let threadCount = 0;
+      for (const channel of channels) {
+        const channelThreads = await ctx.db
+          .query("threads")
+          .withIndex("by_channelId_and_lastMessageAt", (q) =>
+            q.eq("channelId", channel._id),
+          )
+          .collect();
+        threadCount += channelThreads.length;
+        channelSummaries.push({
+          _id: channel._id,
+          provider: channel.provider,
+          address: channel.address,
+          status: channel.status,
+          threadCount: channelThreads.length,
+        });
+      }
       const grants =
         isAdmin && inboxKind(inbox) === "shared"
           ? await ctx.db
@@ -73,14 +121,9 @@ export const listSettings = query({
         name: inbox.name,
         kind: inboxKind(inbox),
         isOwn: inbox.ownerId === context.user._id,
-        threadCount: threads.length,
-        channels: channels.map((channel) => ({
-          _id: channel._id,
-          provider: channel.provider,
-          emailAddress: channel.emailAddress,
-          displayName: channel.displayName,
-          status: channel.status,
-        })),
+        canManage: canManageInbox(context.membership, inbox),
+        threadCount,
+        channels: channelSummaries,
         accessUserIds: grants.map((grant) => grant.userId),
       });
     }
@@ -94,23 +137,32 @@ export const listSettings = query({
   },
 });
 
+/**
+ * Creates the inbox members will connect channels to. Anyone may create a
+ * personal inbox they alone see; shared inboxes are an admin decision.
+ */
 export const create = mutation({
-  args: { name: v.string() },
+  args: {
+    name: v.string(),
+    kind: v.union(v.literal("shared"), v.literal("personal")),
+  },
   returns: v.id("inboxes"),
   handler: async (ctx, args) => {
-    const context = await requireWorkspaceAdmin(ctx);
+    const context = await requireWorkspaceContext(ctx);
+    if (args.kind === "shared" && context.membership.role !== "admin") {
+      throw new Error("Only a workspace admin can create shared inboxes");
+    }
     const name = normalizeInboxName(args.name);
-    const existing = await ctx.db
-      .query("inboxes")
-      .withIndex("by_workspaceId_and_name", (q) =>
-        q.eq("workspaceId", context.workspace._id).eq("name", name),
-      )
-      .first();
-    if (existing) throw new Error(`An inbox named “${name}” already exists`);
+    const scope =
+      args.kind === "personal"
+        ? ({ kind: "personal", ownerId: context.user._id } as const)
+        : ({ kind: "shared" } as const);
+    await requireNameAvailable(ctx, context.workspace._id, name, scope);
     return await ctx.db.insert("inboxes", {
       workspaceId: context.workspace._id,
       name,
-      kind: "shared",
+      kind: args.kind,
+      ownerId: args.kind === "personal" ? context.user._id : undefined,
     });
   },
 });
@@ -121,30 +173,45 @@ export const rename = mutation({
   handler: async (ctx, args) => {
     const context = await requireWorkspaceContext(ctx);
     const inbox = await ctx.db.get(args.inboxId);
-    if (!inbox || inbox.workspaceId !== context.workspace._id) {
+    if (!inbox || !canManageInbox(context.membership, inbox)) {
       throw new Error("Inbox not found");
     }
-    const canManage =
-      inboxKind(inbox) === "personal"
-        ? inbox.ownerId === context.user._id
-        : context.membership.role === "admin";
-    if (!canManage) throw new Error("Only a workspace admin can rename this inbox");
-    await ctx.db.patch(inbox._id, { name: normalizeInboxName(args.name) });
+    const name = normalizeInboxName(args.name);
+    await requireNameAvailable(
+      ctx,
+      inbox.workspaceId,
+      name,
+      inboxScope(inbox),
+      inbox._id,
+    );
+    await ctx.db.patch(inbox._id, { name });
     return null;
   },
 });
 
+/**
+ * Deletes an inbox with its channels and their conversations. Members keep at
+ * least one personal inbox so they always have somewhere to work.
+ */
 export const remove = mutation({
   args: { inboxId: v.id("inboxes") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const context = await requireWorkspaceAdmin(ctx);
+    const context = await requireWorkspaceContext(ctx);
     const inbox = await ctx.db.get(args.inboxId);
-    if (!inbox || inbox.workspaceId !== context.workspace._id) {
+    if (!inbox || !canManageInbox(context.membership, inbox)) {
       throw new Error("Inbox not found");
     }
     if (inboxKind(inbox) === "personal") {
-      throw new Error("Personal inboxes cannot be deleted");
+      const owned = await ctx.db
+        .query("inboxes")
+        .withIndex("by_workspaceId_and_ownerId", (q) =>
+          q.eq("workspaceId", inbox.workspaceId).eq("ownerId", context.user._id),
+        )
+        .collect();
+      if (owned.length <= 1) {
+        throw new Error("Your last personal inbox cannot be deleted");
+      }
     }
     await deleteInboxCascade(ctx, inbox);
     return null;

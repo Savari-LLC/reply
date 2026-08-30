@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireWorkspaceAdmin, requireWorkspaceContext } from "./authHelpers";
+import { avatarUrl, displayName } from "./lib/avatar";
 import { deleteInboxCascade } from "./lib/cascade";
 import { isSeedUser } from "./seed";
 
@@ -17,10 +18,6 @@ const memberValidator = v.object({
   isSelf: v.boolean(),
   isDemo: v.boolean(),
 });
-
-function displayName(user: Doc<"users">) {
-  return user.name ?? user.username ?? "Teammate";
-}
 
 async function requireTargetMembership(
   ctx: MutationCtx,
@@ -62,7 +59,7 @@ export const list = query({
         userId: user._id,
         name: displayName(user),
         email: user.email ?? null,
-        imageUrl: user.authProvider === "google" ? (user.image ?? null) : null,
+        imageUrl: await avatarUrl(ctx, user),
         role: membership.role,
         isSelf: user._id === context.user._id,
         isDemo: isSeedUser(user),
@@ -123,7 +120,8 @@ export const remove = mutation({
       await ctx.db.patch(thread._id, { assigneeId: undefined });
     }
 
-    // Their personal inbox (and its channels and threads) leaves with them.
+    // Their personal inboxes leave with them, and so do the channels and
+    // conversations those inboxes own.
     const personalInboxes = await ctx.db
       .query("inboxes")
       .withIndex("by_workspaceId_and_ownerId", (q) =>

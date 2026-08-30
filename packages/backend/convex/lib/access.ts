@@ -39,6 +39,43 @@ export async function requireInboxAccess(
   return inbox;
 }
 
+/** Owners manage their personal inbox; admins manage shared inboxes. */
+export function canManageInbox(
+  membership: Doc<"memberships">,
+  inbox: Doc<"inboxes">,
+): boolean {
+  if (inbox.workspaceId !== membership.workspaceId) return false;
+  if (inboxKind(inbox) === "personal") return inbox.ownerId === membership.userId;
+  return membership.role === "admin";
+}
+
+/**
+ * Managing a channel is managing the inbox that owns it. Returns the owning
+ * inbox so callers can report its name.
+ */
+export async function requireManageableChannelInbox(
+  ctx: QueryCtx,
+  membership: Doc<"memberships">,
+  channel: Doc<"channels">,
+): Promise<Doc<"inboxes">> {
+  const inbox = await ctx.db.get(channel.inboxId);
+  if (!inbox || !canManageInbox(membership, inbox)) {
+    throw new Error("Channel not found");
+  }
+  return inbox;
+}
+
+/** Channels connected to an inbox, in connection order. */
+export async function getInboxChannels(
+  ctx: QueryCtx,
+  inboxId: Id<"inboxes">,
+): Promise<Doc<"channels">[]> {
+  return await ctx.db
+    .query("channels")
+    .withIndex("by_inboxId", (q) => q.eq("inboxId", inboxId))
+    .collect();
+}
+
 /** Every member owns exactly one personal inbox per workspace. */
 export async function ensurePersonalInbox(
   ctx: MutationCtx,

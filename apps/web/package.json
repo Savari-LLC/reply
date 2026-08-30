@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@convex-dev/auth": "^2.0.0-alpha.1",
+    "@convex-dev/presence": "0.4.0",
     "@convex-dev/react-query": "^0.1.0",
     "@fontsource-variable/inter": "5.2.8",
+    "@react-email/editor": "1.7.2",
     "@reply/backend": "workspace:*",
     "@reply/env": "workspace:*",
     "@reply/ui": "workspace:*",

@@ -1,62 +1,51 @@
 import { v } from "convex/values";
 
-import type { Doc } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
-import { requireWorkspaceContext, type WorkspaceContext } from "./authHelpers";
+import { requireWorkspaceContext } from "./authHelpers";
+import { canManageInbox, requireManageableChannelInbox } from "./lib/access";
 import { deleteChannelCascade } from "./lib/cascade";
-import { connectSampleData, sampleDatasetValidator } from "./seed";
-import { inboxKind } from "./lib/access";
+import { channelProviderValidator, normalizeChannelAddress } from "./lib/providers";
 
-/** Owners manage their personal inbox; admins manage shared inboxes. */
-function requireChannelManagement(context: WorkspaceContext, inbox: Doc<"inboxes">) {
-  if (inbox.workspaceId !== context.workspace._id) {
-    throw new Error("Inbox not found");
-  }
-  const canManage =
-    inboxKind(inbox) === "personal"
-      ? inbox.ownerId === context.user._id
-      : context.membership.role === "admin";
-  if (!canManage) {
-    throw new Error("Only a workspace admin can manage channels on this inbox");
-  }
-}
-
+/**
+ * Connects a channel to an inbox the caller manages. There is no standalone
+ * channel: the inbox is the only container, so the channel inherits its
+ * visibility and access. Channels start empty — conversations arrive only
+ * through simulated incoming emails, never from imported sample data.
+ */
 export const connect = mutation({
   args: {
     inboxId: v.id("inboxes"),
-    provider: v.union(v.literal("gmail"), v.literal("outlook"), v.literal("demo")),
-    dataset: v.optional(sampleDatasetValidator),
+    provider: channelProviderValidator,
+    address: v.string(),
   },
   returns: v.id("channels"),
   handler: async (ctx, args) => {
     const context = await requireWorkspaceContext(ctx);
     const inbox = await ctx.db.get(args.inboxId);
-    if (!inbox) throw new Error("Inbox not found");
-    requireChannelManagement(context, inbox);
-    if (args.provider === "gmail") {
-      throw new Error("Gmail connections are coming soon");
+    if (!inbox || !canManageInbox(context.membership, inbox)) {
+      throw new Error("Inbox not found");
     }
-    if (args.provider === "outlook") {
-      throw new Error("Outlook connections are coming soon");
-    }
-    const dataset = args.dataset ?? "sales";
-    const existing = await ctx.db
+    const address = normalizeChannelAddress(args.provider, args.address);
+    const duplicate = await ctx.db
       .query("channels")
-      .withIndex("by_inboxId", (q) => q.eq("inboxId", inbox._id))
-      .collect();
-    if (existing.some((channel) => channel.provider === "demo")) {
-      throw new Error("Sample data is already connected to this inbox");
+      .withIndex("by_workspaceId_and_address", (q) =>
+        q.eq("workspaceId", context.workspace._id).eq("address", address),
+      )
+      .first();
+    if (duplicate) {
+      throw new Error(`${address} is already connected in this workspace`);
     }
-    const result = await connectSampleData(ctx, {
+    return await ctx.db.insert("channels", {
       workspaceId: context.workspace._id,
       inboxId: inbox._id,
-      actorId: context.user._id,
-      dataset,
+      provider: args.provider,
+      address,
+      status: "connected",
     });
-    return result.channelId;
   },
 });
 
+/** Disconnects a channel, removing its conversations from the inbox. */
 export const disconnect = mutation({
   args: { channelId: v.id("channels") },
   returns: v.null(),
@@ -66,11 +55,7 @@ export const disconnect = mutation({
     if (!channel || channel.workspaceId !== context.workspace._id) {
       throw new Error("Channel not found");
     }
-    const inbox = await ctx.db.get(channel.inboxId);
-    if (!inbox) throw new Error("Inbox not found");
-    requireChannelManagement(context, inbox);
-    // Demo channels take their sample conversations with them; real
-    // providers will archive instead once they exist.
+    await requireManageableChannelInbox(ctx, context.membership, channel);
     await deleteChannelCascade(ctx, channel);
     return null;
   },

@@ -12,6 +12,8 @@ export default defineSchema({
         username: v.string(),
         name: v.optional(v.string()),
         email: v.optional(v.string()),
+        // Avatar uploaded by the member; takes precedence over provider images.
+        imageStorageId: v.optional(v.id("_storage")),
       }),
       v.object({
         authProvider: v.literal("google"),
@@ -21,6 +23,7 @@ export default defineSchema({
         email: v.optional(v.string()),
         image: v.optional(v.string()),
         picture: v.optional(v.string()),
+        imageStorageId: v.optional(v.id("_storage")),
       }),
     ),
   )
@@ -71,9 +74,9 @@ export default defineSchema({
     .index("by_workspaceId_and_inboxId", ["workspaceId", "inboxId"])
     .index("by_userId", ["userId"]),
 
-  // Shared inboxes belong to the whole workspace; personal inboxes are owned
-  // by one member (`ownerId`) and are only visible to that owner. Rows
-  // predating the `kind` field are shared.
+  // The only container members work in. Shared inboxes belong to the whole
+  // workspace; personal inboxes are owned by one member (`ownerId`) and are
+  // visible only to that owner. Rows predating the `kind` field are shared.
   inboxes: defineTable({
     workspaceId: v.id("workspaces"),
     name: v.string(),
@@ -84,25 +87,33 @@ export default defineSchema({
     .index("by_workspaceId_and_name", ["workspaceId", "name"])
     .index("by_workspaceId_and_ownerId", ["workspaceId", "ownerId"]),
 
-  // Simulated email connectors. A channel delivers into exactly one inbox.
-  // The "demo" provider seeds sample conversations into its inbox.
+  // A connected source of conversations, owned by exactly one inbox:
+  // connecting a channel is how an inbox starts receiving messages. A channel
+  // has no visibility of its own — it inherits the inbox's kind and access.
+  // Connections are simulated and seeded with a sample dataset.
   channels: defineTable({
     workspaceId: v.id("workspaces"),
     inboxId: v.id("inboxes"),
-    provider: v.union(v.literal("gmail"), v.literal("outlook"), v.literal("demo")),
-    emailAddress: v.string(),
-    displayName: v.string(),
+    provider: v.union(
+      v.literal("gmail"),
+      v.literal("outlook"),
+      v.literal("whatsapp"),
+      v.literal("sms"),
+    ),
+    // Email address or phone number the provider delivers from.
+    address: v.string(),
     status: v.union(v.literal("connected"), v.literal("disconnected")),
   })
     .index("by_inboxId", ["inboxId"])
     .index("by_workspaceId", ["workspaceId"])
-    .index("by_workspaceId_and_emailAddress", ["workspaceId", "emailAddress"]),
+    .index("by_workspaceId_and_address", ["workspaceId", "address"]),
 
   // The unit of work. Status is open | waiting | closed; the "Assigned" view
   // is derived (status "open" with assigneeId set), never stored.
   threads: defineTable({
     workspaceId: v.id("workspaces"),
-    inboxId: v.id("inboxes"),
+    // Legacy: threads belong to a channel, and the channel names the inbox.
+    inboxId: v.optional(v.id("inboxes")),
     channelId: v.id("channels"),
     subject: v.string(),
     status: v.union(
@@ -152,10 +163,11 @@ export default defineSchema({
     sentAt: v.number(),
   }).index("by_threadId_and_sentAt", ["threadId", "sentAt"]),
 
-  // Per-user unread state, scoped for workspace/inbox unread counts.
+  // Per-user unread state, scoped for workspace unread counts.
   threadReads: defineTable({
     workspaceId: v.id("workspaces"),
-    inboxId: v.id("inboxes"),
+    // Legacy: unread state is per thread; the thread's channel names the inbox.
+    inboxId: v.optional(v.id("inboxes")),
     threadId: v.id("threads"),
     userId: v.id("users"),
     lastReadAt: v.number(),
@@ -170,6 +182,17 @@ export default defineSchema({
     threadId: v.id("threads"),
     authorId: v.id("users"),
     body: v.string(),
+    // Small bounded list of teammate-uploaded files shown with the comment.
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          name: v.string(),
+          size: v.number(),
+          type: v.string(),
+        }),
+      ),
+    ),
   }).index("by_threadId", ["threadId"]),
 
   mentions: defineTable({
@@ -205,6 +228,12 @@ export default defineSchema({
     logoUrl: v.optional(v.string()),
     industry: v.optional(v.string()),
     website: v.optional(v.string()),
+    slogan: v.optional(v.string()),
+    primaryColor: v.optional(v.string()),
+    location: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    socials: v.optional(v.array(v.object({ type: v.string(), url: v.string() }))),
     fetchedAt: v.number(),
   }).index("by_workspaceId_and_domain", ["workspaceId", "domain"]),
 });

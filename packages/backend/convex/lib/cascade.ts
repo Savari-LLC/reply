@@ -32,7 +32,10 @@ async function deleteThreadCascade(ctx: MutationCtx, thread: Doc<"threads">) {
   await ctx.db.delete(thread._id);
 }
 
-/** Deletes every thread delivered through a channel, then the channel itself. */
+/**
+ * Disconnects a channel and deletes its conversations. Conversations live in
+ * the channel, so they leave with it.
+ */
 export async function deleteChannelCascade(ctx: MutationCtx, channel: Doc<"channels">) {
   const channelThreads = await ctx.db
     .query("threads")
@@ -42,19 +45,16 @@ export async function deleteChannelCascade(ctx: MutationCtx, channel: Doc<"chann
   await ctx.db.delete(channel._id);
 }
 
-/** Deletes an inbox with its channels, threads, and access grants. */
+/**
+ * Deletes an inbox with the channels it owns, their conversations, and its
+ * access grants. Nothing outlives the inbox.
+ */
 export async function deleteInboxCascade(ctx: MutationCtx, inbox: Doc<"inboxes">) {
   const channels = await ctx.db
     .query("channels")
     .withIndex("by_inboxId", (q) => q.eq("inboxId", inbox._id))
     .collect();
   for (const channel of channels) await deleteChannelCascade(ctx, channel);
-  // Threads not tied to a surviving channel (defensive; channels own threads).
-  const orphanThreads = await ctx.db
-    .query("threads")
-    .withIndex("by_inboxId_and_status_and_lastMessageAt", (q) => q.eq("inboxId", inbox._id))
-    .collect();
-  for (const thread of orphanThreads) await deleteThreadCascade(ctx, thread);
   const grants = await ctx.db
     .query("inboxAccess")
     .withIndex("by_workspaceId_and_inboxId", (q) =>

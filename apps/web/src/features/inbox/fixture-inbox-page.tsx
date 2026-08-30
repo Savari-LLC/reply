@@ -13,11 +13,14 @@ import {
 import { InboxScreen } from "./inbox-screen";
 import type { InboxController, LoadScope } from "./model";
 import type {
+  CommentDraft,
   InboxScreenState,
   Message,
   OperationKey,
+  ThreadComment,
   ThreadDetail,
   ThreadSummary,
+  ThreadViewer,
 } from "./types";
 
 const LOAD_DELAY_MS = 450;
@@ -87,6 +90,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
     (thread: ThreadSummary): ThreadDetail => ({
       thread,
       messages: FIXTURE_MESSAGES[thread.id] ?? [],
+      comments: [],
       company:
         scenario === "missing-company" ? undefined : FIXTURE_COMPANIES[thread.id],
     }),
@@ -302,7 +306,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       return getFixtureDraft(threadId);
     };
 
-    const sendReply = async (threadId: string, body: string) => {
+    const sendReply = async (threadId: string, body: string, bodyHtml?: string) => {
       setOperation("send", "loading");
       await delay(MUTATION_DELAY_MS + 250);
       if (scenario === "send-error") {
@@ -320,6 +324,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
         authorName: "You",
         authorEmail: "you@reply.dev",
         body,
+        bodyHtml,
         sentAt: Date.now(),
       };
       setState((prev) => {
@@ -344,6 +349,46 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       });
     };
 
+    const addComment = async (threadId: string, draft: CommentDraft) => {
+      setOperation("comment", "loading");
+      await delay(MUTATION_DELAY_MS);
+      const comment: ThreadComment = {
+        id: `comment-${Date.now()}`,
+        threadId,
+        authorId: FIXTURE_TEAMMATES[0]!.id,
+        authorName: "You",
+        body: draft.body,
+        sentAt: Date.now(),
+        mentions: FIXTURE_TEAMMATES.filter((teammate) =>
+          draft.mentionedUserIds?.includes(teammate.id),
+        ).map((teammate) => ({ userId: teammate.id, name: teammate.name })),
+        attachments: (draft.files ?? []).map((file) => ({
+          url: URL.createObjectURL(file),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        })),
+      };
+      setState((prev) => ({
+        ...prev,
+        selectedThread:
+          prev.selectedThread && prev.selectedThread.thread.id === threadId
+            ? {
+                ...prev.selectedThread,
+                comments: [...prev.selectedThread.comments, comment],
+              }
+            : prev.selectedThread,
+      }));
+      setOperation("comment", "success");
+    };
+
+    const simulateEmail = async () => {
+      toast.info("Simulated emails need the live workspace.", {
+        id: TOAST_IDS.simulate,
+        description: "Sign in to deliver a demo email enriched by Context.dev.",
+      });
+    };
+
     const retryLoad = async (scope: LoadScope) => {
       if (scope === "screen") return loadScreen();
       if (scope === "list") {
@@ -364,9 +409,23 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       setLabels,
       generateDraft,
       sendReply,
+      addComment,
+      simulateEmail,
       retryLoad,
     };
   }, [loadList, loadScreen, loadThread, runMutation, scenario, setOperation, state, updateThread]);
 
-  return <InboxScreen controller={controller} />;
+  // Deterministic presence for the fixture demo: the first two teammates are
+  // always "viewing" whichever thread is open.
+  const viewers = useMemo<ThreadViewer[]>(() => {
+    if (state.threadStatus !== "ready" || !state.selectedThread) return [];
+    return FIXTURE_TEAMMATES.slice(0, 2).map((teammate, index) => ({
+      id: teammate.id,
+      name: teammate.name,
+      initials: teammate.initials,
+      isSelf: index === 0,
+    }));
+  }, [state.threadStatus, state.selectedThread]);
+
+  return <InboxScreen controller={controller} viewers={viewers} />;
 }
