@@ -1,6 +1,7 @@
 import { Button } from "@reply/ui/components/button";
 import { Skeleton } from "@reply/ui/components/skeleton";
 import { MailOpen } from "lucide-react";
+import { useRef, useState } from "react";
 
 import type {
   OperationKey,
@@ -11,6 +12,10 @@ import type {
   ThreadPriority,
   ThreadStatus,
 } from "../types";
+import { CompanyProfilePanel } from "./company-profile-panel";
+import { ConversationHeader } from "./conversation-header";
+import { MessageTimeline } from "./message-timeline";
+import { ReplyComposer } from "./reply-composer";
 
 /** Thread-scoped actions derived from the controller for the selected thread. */
 export type WorkspaceActions = {
@@ -34,19 +39,40 @@ export type ConversationWorkspaceProps = {
 };
 
 /**
- * Third column: conversation header, message timeline, company panel, and
- * reply composer.
- *
- * Wave 1B (F3+F4) replaces the internals with the full Figma treatment; the
- * props and outer geometry are frozen.
+ * Third column: conversation header, message timeline, optional company
+ * panel, and the Reply Copilot composer.
  */
-export function ConversationWorkspace({ detail, status, error, actions }: ConversationWorkspaceProps) {
+export function ConversationWorkspace({
+  detail,
+  status,
+  error,
+  teammates,
+  operations,
+  actions,
+}: ConversationWorkspaceProps) {
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const closePanel = () => {
+    setPanelOpen(false);
+    panelTriggerRef.current?.focus();
+  };
+
   if (status === "loading") {
     return (
-      <div className="flex min-w-0 flex-1 flex-col" aria-busy="true" aria-label="Loading conversation">
-        <div className="flex h-16 items-center gap-3 border-b border-(--inbox-border-subtle) px-4">
+      <div
+        className="flex min-w-0 flex-1 flex-col"
+        aria-busy="true"
+        aria-label="Loading conversation"
+      >
+        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-(--inbox-border-subtle) px-4">
           <Skeleton className="size-8 rounded-full" />
           <Skeleton className="h-5 w-48 rounded-md" />
+          <div className="ml-auto flex items-center gap-1.5">
+            <Skeleton className="h-8 w-28 rounded-lg" />
+            <Skeleton className="h-8 w-20 rounded-lg" />
+            <Skeleton className="size-8 rounded-lg" />
+          </div>
         </div>
         <div className="flex-1 space-y-4 p-4">
           <Skeleton className="h-[152px] w-full rounded-xl" />
@@ -64,11 +90,15 @@ export function ConversationWorkspace({ detail, status, error, actions }: Conver
   if (status === "error") {
     return (
       <div className="flex min-w-0 flex-1 items-center justify-center" role="alert">
-        <div className="flex flex-col items-center gap-3 text-center">
+        <div className="flex w-[320px] flex-col items-center gap-3 text-center">
           <p className="text-sm text-(--inbox-text)">
             {error ?? "This conversation could not load."}
           </p>
-          <Button variant="outline" className="h-8 rounded-lg" onClick={actions.retry}>
+          <Button
+            variant="outline"
+            className="h-8 rounded-lg focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+            onClick={actions.retry}
+          >
             Retry
           </Button>
         </div>
@@ -83,7 +113,7 @@ export function ConversationWorkspace({ detail, status, error, actions }: Conver
           <div className="flex size-12 items-center justify-center rounded-full bg-(--inbox-active)">
             <MailOpen className="size-6 text-(--inbox-text-subtle)" aria-hidden />
           </div>
-          <p className="mt-4 text-base font-semibold text-(--inbox-text-strong)">
+          <p className="mt-4 text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
             Select a conversation to view details
           </p>
           <p className="mt-1 text-sm leading-5 text-(--inbox-text-muted)">
@@ -95,17 +125,36 @@ export function ConversationWorkspace({ detail, status, error, actions }: Conver
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <div className="flex h-16 shrink-0 items-center border-b border-(--inbox-border-subtle) px-4">
-        <p className="truncate text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
-          {detail.thread.subject}
-        </p>
+    <section className="flex min-w-0 flex-1 flex-col" aria-label="Conversation">
+      <ConversationHeader
+        thread={detail.thread}
+        teammates={teammates}
+        operations={operations}
+        actions={actions}
+        panelOpen={panelOpen}
+        onTogglePanel={() => (panelOpen ? closePanel() : setPanelOpen(true))}
+        panelTriggerRef={panelTriggerRef}
+      />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <MessageTimeline threadId={detail.thread.id} messages={detail.messages} />
+          {/* Keyed so a thread switch resets the local draft text. */}
+          <ReplyComposer
+            key={detail.thread.id}
+            draftState={operations.draft}
+            sendState={operations.send}
+            onGenerateDraft={actions.generateDraft}
+            onSendReply={actions.sendReply}
+          />
+        </div>
+        {panelOpen ? (
+          <CompanyProfilePanel
+            company={detail.company}
+            thread={detail.thread}
+            onClose={closePanel}
+          />
+        ) : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <p className="text-sm text-(--inbox-text-muted)">
-          {detail.messages.length} messages — full workspace lands with Wave 1B.
-        </p>
-      </div>
-    </div>
+    </section>
   );
 }
