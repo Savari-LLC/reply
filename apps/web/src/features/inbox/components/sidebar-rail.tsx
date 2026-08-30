@@ -30,10 +30,10 @@ const RAIL_ICONS: Array<{
   section?: RailSection;
   to?: string;
 }> = [
-  { label: "Inbox", Icon: InboxIcon, section: "inbox", to: "/inbox" },
-  { label: "Calendar", Icon: Calendar },
-  { label: "Settings", Icon: Settings, section: "settings", to: "/settings" },
-];
+    { label: "Inbox", Icon: InboxIcon, section: "inbox", to: "/inbox" },
+    { label: "Calendar", Icon: Calendar },
+    { label: "Settings", Icon: Settings, section: "settings", to: "/settings" },
+  ];
 
 export type RailUser = {
   name: string;
@@ -88,11 +88,10 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
       <div className="flex flex-col gap-1.5 p-2">
         {RAIL_ICONS.map(({ label, Icon, section, to }) => {
           const active = section !== undefined && section === activeSection;
-          const className = `flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
-            active
+          const className = `flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${active
               ? "bg-(--inbox-action-secondary-hover) text-(--inbox-text)"
               : "text-(--inbox-text-subtle)"
-          }`;
+            }`;
           if (to) {
             return (
               <Link
@@ -118,11 +117,29 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
       <div className="min-h-0 flex-1" />
       <div className="px-2 pb-3 pt-2">
         {onSignOut ? (
-          <>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label={`Account menu — ${accountLabel}`}
-                className="relative block size-8 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={`Account menu — ${accountLabel}`}
+              className="relative block size-8 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+            >
+              <RailAvatar user={user} />
+              <span
+                className="absolute right-0 bottom-0 size-2 rounded-full bg-(--inbox-success) ring-2 ring-white"
+                aria-hidden
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="right"
+              align="end"
+              className="min-w-44 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-lg shadow-black/5"
+            >
+              <DropdownMenuLabel className="truncate text-xs font-medium text-(--inbox-text-muted)">
+                {accountLabel}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="rounded-md text-sm text-(--inbox-text)"
+                onClick={onSignOut}
               >
                 <RailAvatar user={user} />
                 <span
@@ -160,16 +177,16 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
             </DropdownMenu>
             <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
           </>
-        ) : (
-          <span className="relative block size-8" aria-label={`${accountLabel}, online`}>
-            <RailAvatar user={user} />
-            <span
-              className="absolute right-0 bottom-0 size-2 rounded-full bg-(--inbox-success) ring-2 ring-white"
-              aria-hidden
-            />
-          </span>
+      ) : (
+      <span className="relative block size-8" aria-label={`${accountLabel}, online`}>
+        <RailAvatar user={user} />
+        <span
+          className="absolute right-0 bottom-0 size-2 rounded-full bg-(--inbox-success) ring-2 ring-white"
+          aria-hidden
+        />
+      </span>
         )}
-      </div>
     </div>
+    </div >
   );
 }
