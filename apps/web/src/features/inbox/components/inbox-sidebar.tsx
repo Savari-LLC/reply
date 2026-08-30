@@ -1,7 +1,21 @@
-import { ChevronDown, Search } from "lucide-react";
+import {
+  AlarmClock,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Inbox as InboxIcon,
+  Mail,
+  Plus,
+  Search,
+  Send,
+} from "lucide-react";
+import { useState } from "react";
+
+import { ReplyLogoMark } from "@/components/reply-logo";
 
 import { LABEL_ACCENT_STYLES } from "../constants";
 import type { InboxSummary } from "../types";
+import { NewMessageDialog } from "./new-message-dialog";
 import { SidebarRail, type RailUser } from "./sidebar-rail";
 
 type InboxSidebarProps = {
@@ -12,6 +26,31 @@ type InboxSidebarProps = {
   onSignOut?: () => void;
 };
 
+const ROW =
+  "flex h-8 w-full shrink-0 items-center gap-2 rounded-lg px-3 text-sm tracking-[-0.1px] outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)";
+const ROW_IDLE = "text-(--inbox-text) hover:bg-(--inbox-hover)";
+const ROW_SELECTED = "bg-(--inbox-surface) text-(--inbox-text-strong) shadow-(--inbox-shadow-sm)";
+
+/** Views under each shared inbox; a teammate will wire these to real filters. */
+const SHARED_VIEWS = ["Open", "Assigned", "Done"] as const;
+
+/** Personal quick views from the Figma sidebar; UI-only for now. */
+const PERSONAL_VIEWS = [
+  { label: "Sent", Icon: Send },
+  { label: "Snoozed", Icon: AlarmClock },
+  { label: "Done", Icon: CheckCircle2 },
+] as const;
+
+function CountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="flex min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-xs font-medium tracking-[-0.1px] text-(--inbox-text-strong) opacity-50">
+      {count}
+      <span className="sr-only"> unread</span>
+    </span>
+  );
+}
+
 /** First column: 48px utility rail + fluid inbox navigation (224–248px total). */
 export function InboxSidebar({
   inboxes,
@@ -20,16 +59,22 @@ export function InboxSidebar({
   currentUser,
   onSignOut,
 }: InboxSidebarProps) {
+  const [composerOpen, setComposerOpen] = useState(false);
+  const personalInboxes = inboxes.filter((inbox) => inbox.kind === "personal");
+  const sharedInboxes = inboxes.filter((inbox) => inbox.kind !== "personal");
+
   return (
     <div className="flex h-full shrink-0">
       <SidebarRail user={currentUser} onSignOut={onSignOut} />
-      <div className="flex w-[clamp(176px,13vw,200px)] flex-col overflow-y-auto bg-(--inbox-nav)">
+      <div className="flex w-[clamp(184px,14vw,216px)] flex-col overflow-y-auto bg-(--inbox-nav)">
         <div className="flex flex-col gap-3 p-3">
           <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-(--inbox-border) bg-(--inbox-surface) p-2">
             <span
-              className="size-5 shrink-0 rounded-md bg-(--inbox-action-secondary)"
+              className="flex size-5 shrink-0 items-center justify-center rounded-md bg-[#0d9488]"
               aria-hidden
-            />
+            >
+              <ReplyLogoMark className="h-3 w-auto text-white" />
+            </span>
             <span className="min-w-0 flex-1 truncate text-sm tracking-[-0.1px] text-(--inbox-text)">
               Reply Workspace
             </span>
@@ -47,73 +92,132 @@ export function InboxSidebar({
               <Search className="size-4" aria-hidden />
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setComposerOpen(true)}
+            className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-(--inbox-action-secondary) text-sm font-medium tracking-[-0.1px] text-(--inbox-text) outline-none transition-colors hover:bg-(--inbox-action-secondary-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+          >
+            <Plus className="size-4" aria-hidden />
+            New Message
+          </button>
         </div>
         <div className="mx-3 h-px shrink-0 bg-(--inbox-border-subtle)" aria-hidden />
-        <nav className="flex flex-col gap-1 px-3 py-2" aria-label="Inboxes">
-          <InboxGroup
-            title="Your inbox"
-            inboxes={inboxes.filter((inbox) => inbox.kind === "personal")}
-            selectedInboxId={selectedInboxId}
-            onSelectInbox={onSelectInbox}
-          />
-          <InboxGroup
-            title="Shared inboxes"
-            inboxes={inboxes.filter((inbox) => inbox.kind !== "personal")}
-            selectedInboxId={selectedInboxId}
-            onSelectInbox={onSelectInbox}
-          />
+        <nav className="flex flex-col gap-0.5 px-3 py-2" aria-label="Inboxes">
+          {personalInboxes.map((inbox) => {
+            const selected = inbox.id === selectedInboxId;
+            return (
+              <button
+                key={inbox.id}
+                type="button"
+                onClick={() => onSelectInbox(inbox.id)}
+                aria-current={selected ? "true" : undefined}
+                className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE}`}
+              >
+                <InboxIcon className="size-4 shrink-0 text-(--inbox-text-subtle)" aria-hidden />
+                <span className="min-w-0 flex-1 truncate text-left">{inbox.name}</span>
+                <CountBadge count={inbox.unreadCount} />
+              </button>
+            );
+          })}
+          {personalInboxes.length > 0
+            ? PERSONAL_VIEWS.map(({ label, Icon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  title={`${label} (coming soon)`}
+                  className={`${ROW} ${ROW_IDLE}`}
+                >
+                  <Icon className="size-4 shrink-0 text-(--inbox-text-subtle)" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+                  <span className="sr-only"> (coming soon)</span>
+                </button>
+              ))
+            : null}
+
+          {sharedInboxes.length > 0 ? (
+            <p className="px-3 pt-4 pb-1 text-xs font-medium tracking-[-0.1px] text-(--inbox-text-muted)">
+              Shared inboxes
+            </p>
+          ) : null}
+          {sharedInboxes.map((inbox) => (
+            <SharedInboxGroup
+              key={inbox.id}
+              inbox={inbox}
+              selected={inbox.id === selectedInboxId}
+              onSelect={() => onSelectInbox(inbox.id)}
+            />
+          ))}
         </nav>
       </div>
+      <NewMessageDialog open={composerOpen} onOpenChange={setComposerOpen} />
     </div>
   );
 }
 
-function InboxGroup({
-  title,
-  inboxes,
-  selectedInboxId,
-  onSelectInbox,
+/**
+ * Shared inbox with collapsible Open/Assigned/Done views (Figma sidebar).
+ * The views are UI-only for now; a teammate will wire them to real filters.
+ */
+function SharedInboxGroup({
+  inbox,
+  selected,
+  onSelect,
 }: {
-  title: string;
-  inboxes: InboxSummary[];
-  selectedInboxId: string | null;
-  onSelectInbox: (inboxId: string) => void;
+  inbox: InboxSummary;
+  selected: boolean;
+  onSelect: () => void;
 }) {
-  if (inboxes.length === 0) return null;
+  const [expanded, setExpanded] = useState(selected);
+  const accent = LABEL_ACCENT_STYLES[inbox.accent];
+  const Chevron = expanded ? ChevronDown : ChevronRight;
+
   return (
-    <>
-      <p className="px-3 pt-1 pb-1 text-xs font-medium tracking-[-0.1px] text-(--inbox-text-muted)">
-        {title}
-      </p>
-      {inboxes.map((inbox) => {
-        const selected = inbox.id === selectedInboxId;
-        return (
-          <button
-            key={inbox.id}
-            type="button"
-            onClick={() => onSelectInbox(inbox.id)}
-            aria-current={selected ? "true" : undefined}
-            className={`flex h-8 w-full shrink-0 items-center gap-2 rounded-lg px-3 text-sm tracking-[-0.1px] outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
-              selected
-                ? "bg-(--inbox-surface) text-(--inbox-text-strong) shadow-(--inbox-shadow-sm)"
-                : "text-(--inbox-text) hover:bg-(--inbox-hover)"
-            }`}
+    <div className="flex flex-col gap-0.5">
+      <div className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE} gap-0 p-0`}>
+        <button
+          type="button"
+          onClick={() => {
+            onSelect();
+            setExpanded(true);
+          }}
+          aria-current={selected ? "true" : undefined}
+          className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+        >
+          <span
+            className="flex size-4 shrink-0 items-center justify-center rounded"
+            style={{ backgroundColor: accent.dot }}
+            aria-hidden
           >
-            <span
-              className="size-2 shrink-0 rounded-full"
-              style={{ backgroundColor: LABEL_ACCENT_STYLES[inbox.accent].dot }}
-              aria-hidden
-            />
-            <span className="min-w-0 flex-1 truncate text-left">{inbox.name}</span>
-            {inbox.unreadCount > 0 ? (
-              <span className="shrink-0 text-xs font-medium tracking-[-0.1px] text-(--inbox-text-muted)">
-                {inbox.unreadCount}
-                <span className="sr-only"> unread</span>
-              </span>
-            ) : null}
-          </button>
-        );
-      })}
-    </>
+            <Mail className="size-2.5 text-white" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left">{inbox.name}</span>
+        </button>
+        <CountBadge count={inbox.unreadCount} />
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${inbox.name} views`}
+          onClick={() => setExpanded((value) => !value)}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--inbox-text-muted) outline-none hover:text-(--inbox-text) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+        >
+          <Chevron className="size-4" aria-hidden />
+        </button>
+      </div>
+      {expanded ? (
+        <div className="flex flex-col gap-0.5">
+          {SHARED_VIEWS.map((view) => (
+            <button
+              key={view}
+              type="button"
+              title={`${view} (coming soon)`}
+              className="flex h-8 w-full shrink-0 items-center rounded-lg pl-9 pr-3 text-xs tracking-[-0.1px] text-(--inbox-text) outline-none hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+            >
+              <span className="min-w-0 flex-1 truncate text-left">{view}</span>
+              <span className="sr-only"> (coming soon)</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

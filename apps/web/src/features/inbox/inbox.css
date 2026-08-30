@@ -49,6 +49,25 @@
   color: var(--inbox-text);
 }
 
+/* App-shell screens own all scrolling internally (thread list, timeline,
+ * sidebar nav). Pin the document itself so the page never scrolls while an
+ * .inbox-root shell is mounted. */
+html:has(.inbox-root),
+html:has(.inbox-root) body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Scrollable region without a visible scrollbar (still wheel/keyboard/touch
+ * scrollable). Used by the thread list. */
+.inbox-scrollbar-none {
+  scrollbar-width: none;
+}
+
+.inbox-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* React Email editor (Tiptap) sizing inside the composer card. Padding and
  * height live on our own wrapper so they hold regardless of the classes the
  * editor renders internally. */

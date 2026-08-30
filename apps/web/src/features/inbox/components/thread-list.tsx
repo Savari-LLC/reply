@@ -70,7 +70,7 @@ export function ThreadList(props: ThreadListProps) {
           ))}
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <div className="inbox-scrollbar-none min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <ThreadListBody {...props} />
       </div>
       {status === "ready" && threads.length > 0 ? (
