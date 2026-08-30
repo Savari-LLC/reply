@@ -11,6 +11,7 @@ export default defineSchema({
         providerAccountId: v.optional(v.string()),
         username: v.string(),
         name: v.optional(v.string()),
+        email: v.optional(v.string()),
       }),
       v.object({
         authProvider: v.literal("google"),
@@ -29,6 +30,8 @@ export default defineSchema({
   workspaces: defineTable({
     name: v.string(),
     slug: v.string(),
+    createdBy: v.optional(v.id("users")),
+    onboardingCompletedAt: v.optional(v.number()),
     // Set only by the demo seed; required before the seed may wipe a workspace.
     demoSeed: v.optional(v.boolean()),
   }).index("by_slug", ["slug"]),
@@ -41,6 +44,21 @@ export default defineSchema({
     .index("by_workspaceId_and_userId", ["workspaceId", "userId"])
     .index("by_workspaceId", ["workspaceId"])
     .index("by_userId", ["userId"]),
+
+  workspaceInvitations: defineTable({
+    workspaceId: v.id("workspaces"),
+    email: v.string(),
+    invitedBy: v.id("users"),
+    tokenHash: v.string(),
+    expiresAt: v.number(),
+    revokedAt: v.optional(v.number()),
+    acceptedAt: v.optional(v.number()),
+    acceptedBy: v.optional(v.id("users")),
+    emailId: v.optional(v.string()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_workspaceId_and_email", ["workspaceId", "email"]),
 
   // Grants a member access to an inbox. Workspace admins bypass this table.
   inboxAccess: defineTable({

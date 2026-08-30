@@ -1,8 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-/** The inbox is the product: land everyone there (it handles sign-in itself). */
+type HomeSearchParams = { invite?: string };
+
 export const Route = createFileRoute("/")({
-  beforeLoad: () => {
-    throw redirect({ to: "/inbox" });
+  validateSearch: (search: Record<string, unknown>): HomeSearchParams => ({
+    invite: typeof search.invite === "string" ? search.invite : undefined,
+  }),
+  beforeLoad: ({ search }) => {
+    throw redirect({
+      to: "/inbox",
+      search: search.invite ? { invite: search.invite } : {},
+    });
   },
 });
