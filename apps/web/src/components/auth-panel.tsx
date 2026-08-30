@@ -248,7 +248,7 @@ function PasswordForm({ mode }: { mode: PasswordMode }) {
         </Alert>
       ) : null}
 
-      <Button type="submit" size="lg" className="h-11 w-full rounded-xl! bg-[#202d2a] text-sm hover:bg-[#30423e]" disabled={pending}>
+      <Button type="submit" size="lg" className="h-11 w-full rounded-xl! bg-[#0d9488] text-sm hover:bg-[#0b7268]" disabled={pending}>
         {pending ? <Spinner /> : null}
         {pending ? (mode === "sign-in" ? "Signing in…" : "Creating account…") : mode === "sign-in" ? "Sign in" : "Create account"}
         {!pending ? <ArrowRight aria-hidden="true" /> : null}
