@@ -96,7 +96,7 @@ export function SidebarRail({ user, onSignOut }: SidebarRailProps) {
             <DropdownMenuContent
               side="right"
               align="end"
-              className="min-w-44 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-(--inbox-shadow-sm)"
+              className="min-w-44 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-lg shadow-black/5"
             >
               <DropdownMenuLabel className="truncate text-xs font-medium text-(--inbox-text-muted)">
                 {accountLabel}

@@ -1,7 +1,10 @@
 /*
  * Feature-scoped design tokens derived from the ReplyFlow Figma frames.
- * Scoped to .inbox-root so the application-wide theme stays untouched.
+ * The --inbox-* prefix keeps them isolated from the application theme.
+ * Defined on :root (not just .inbox-root) because dropdown/menu content is
+ * portaled to <body>, outside .inbox-root, and must still resolve the vars.
  */
+:root,
 .inbox-root {
   /* Backgrounds and surfaces */
   --inbox-canvas: #f0f0f0;
@@ -40,50 +43,64 @@
   --inbox-shadow-composer:
     0 0 13px rgba(171, 171, 171, 0.05), 0 -24px 24px rgba(171, 171, 171, 0.04),
     0 -54px 32px rgba(171, 171, 171, 0.03), 0 -95px 38px rgba(171, 171, 171, 0.01);
+}
 
+.inbox-root {
   color: var(--inbox-text);
 }
 
-/* React Email editor (Tiptap) sizing inside the composer card. */
-.inbox-composer-editor .ProseMirror {
-  min-height: 112px;
-  max-height: 256px;
+/* React Email editor (Tiptap) sizing inside the composer card. Padding and
+ * height live on our own wrapper so they hold regardless of the classes the
+ * editor renders internally. */
+.inbox-composer-editor {
+  min-height: 136px;
+  max-height: 280px;
   overflow-y: auto;
   padding: 12px 16px;
   font-size: 14px;
   line-height: 20px;
   color: var(--inbox-text);
-  outline: none;
 }
 
-.inbox-composer-editor .ProseMirror p.is-editor-empty:first-child::before {
+.inbox-composer-editor :where(.ProseMirror, .tiptap, [contenteditable="true"]) {
+  min-height: 112px;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.inbox-composer-editor p.is-editor-empty:first-child::before {
   color: var(--inbox-text-muted);
 }
 
-.inbox-composer-editor-tall .ProseMirror {
-  min-height: 280px;
-  max-height: 420px;
+.inbox-composer-editor-tall {
+  min-height: 304px;
+  max-height: 444px;
 }
 
-.inbox-composer-editor .ProseMirror img {
+.inbox-composer-editor-tall :where(.ProseMirror, .tiptap, [contenteditable="true"]) {
+  min-height: 280px;
+}
+
+.inbox-composer-editor img {
   max-width: 320px;
   max-height: 200px;
   border-radius: 8px;
 }
 
-.inbox-composer-editor .ProseMirror blockquote {
+.inbox-composer-editor blockquote {
   margin: 4px 0;
   border-left: 2px solid var(--inbox-border-strong);
   padding-left: 12px;
   color: var(--inbox-text-subtle);
 }
 
-.inbox-composer-editor .ProseMirror ul,
-.inbox-composer-editor .ProseMirror ol {
+.inbox-composer-editor ul,
+.inbox-composer-editor ol {
   padding-left: 18px;
 }
 
-.inbox-composer-editor .ProseMirror a {
+.inbox-composer-editor a {
   color: var(--inbox-primary-text);
   text-decoration: underline;
   text-underline-offset: 2px;
