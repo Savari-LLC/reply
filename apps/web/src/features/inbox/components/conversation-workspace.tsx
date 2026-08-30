@@ -25,7 +25,7 @@ export type WorkspaceActions = {
   setPriority: (priority: ThreadPriority) => Promise<void>;
   setLabels: (labelIds: string[]) => Promise<void>;
   generateDraft: () => Promise<string>;
-  sendReply: (body: string) => Promise<void>;
+  sendReply: (body: string, bodyHtml?: string) => Promise<void>;
   retry: () => Promise<void>;
 };
 
@@ -54,6 +54,8 @@ export function ConversationWorkspace({
   headingFocusToken = 0,
 }: ConversationWorkspaceProps) {
   const [panelOpen, setPanelOpen] = useState(false);
+  // Collapsed by default; a Reply action opens the full composer.
+  const [composerExpanded, setComposerExpanded] = useState(false);
   const panelTriggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lastFocusToken = useRef(headingFocusToken);
@@ -152,12 +154,19 @@ export function ConversationWorkspace({
       />
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <MessageTimeline threadId={detail.thread.id} messages={detail.messages} />
+          <MessageTimeline
+            threadId={detail.thread.id}
+            messages={detail.messages}
+            onReply={() => setComposerExpanded(true)}
+          />
           {/* Keyed so a thread switch resets the local draft text. */}
           <ReplyComposer
             key={detail.thread.id}
+            thread={detail.thread}
             draftState={operations.draft}
             sendState={operations.send}
+            expanded={composerExpanded}
+            onExpandedChange={setComposerExpanded}
             onGenerateDraft={actions.generateDraft}
             onSendReply={actions.sendReply}
           />

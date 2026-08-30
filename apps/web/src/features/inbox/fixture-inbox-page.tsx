@@ -302,7 +302,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       return getFixtureDraft(threadId);
     };
 
-    const sendReply = async (threadId: string, body: string) => {
+    const sendReply = async (threadId: string, body: string, bodyHtml?: string) => {
       setOperation("send", "loading");
       await delay(MUTATION_DELAY_MS + 250);
       if (scenario === "send-error") {
@@ -320,6 +320,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
         authorName: "You",
         authorEmail: "you@reply.dev",
         body,
+        bodyHtml,
         sentAt: Date.now(),
       };
       setState((prev) => {
