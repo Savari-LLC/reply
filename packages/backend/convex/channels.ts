@@ -7,10 +7,10 @@ import { deleteChannelCascade } from "./lib/cascade";
 import { channelProviderValidator, normalizeChannelAddress } from "./lib/providers";
 
 /**
- * Connects a channel to an inbox the caller manages. There is no standalone
- * channel: the inbox is the only container, so the channel inherits its
- * visibility and access. Channels start empty — conversations arrive only
- * through simulated incoming emails, never from imported sample data.
+ * Connects a simulated channel to an inbox the caller manages. There is no
+ * standalone channel: the inbox is the only container, so the channel
+ * inherits its visibility and access. Conversations arrive through simulated
+ * incoming messages rather than imported sample data.
  */
 export const connect = mutation({
   args: {
@@ -56,6 +56,13 @@ export const disconnect = mutation({
       throw new Error("Channel not found");
     }
     await requireManageableChannelInbox(ctx, context.membership, channel);
+    const mailConnection = await ctx.db
+      .query("mailConnections")
+      .withIndex("by_channelId", (q) => q.eq("channelId", channel._id))
+      .unique();
+    if (mailConnection) {
+      throw new Error("Disconnect this mailbox through the mail channel controls");
+    }
     await deleteChannelCascade(ctx, channel);
     return null;
   },

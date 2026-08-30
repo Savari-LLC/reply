@@ -505,10 +505,11 @@ export function ConvexInboxPage() {
       try {
         await sendReplyMutation({ threadId: threadId as Id<"threads">, body });
       } catch (error) {
-        setOperation("send", "error", "Your reply could not be sent.");
+        const message = error instanceof Error ? error.message : "Your reply could not be sent.";
+        setOperation("send", "error", message);
         toast.error("Your reply could not be sent.", {
           id: TOAST_IDS.send,
-          description: "Your draft is preserved — try again.",
+          description: `${message} Your draft is preserved.`,
         });
         throw error;
       }

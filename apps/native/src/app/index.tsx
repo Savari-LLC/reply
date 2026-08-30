@@ -82,7 +82,8 @@ export default function InboxScreen() {
   }, [threads, filter]);
 
   const userName = currentUser?.name ?? currentUser?.username ?? "Signed in";
-  const userImage = currentUser?.image ?? undefined;
+  const userImage =
+    currentUser?.authProvider === "google" ? (currentUser.image ?? undefined) : undefined;
 
   function confirmSignOut() {
     if (Platform.OS === "ios") {

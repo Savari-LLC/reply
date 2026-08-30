@@ -634,6 +634,13 @@ export const sendReply = mutation({
     if (body.length === 0) throw new Error("Reply body cannot be empty");
     const context = await requireWorkspaceContext(ctx);
     const thread = await requireThread(ctx, context, args.threadId);
+    const liveConnection = await ctx.db
+      .query("mailConnections")
+      .withIndex("by_channelId", (q) => q.eq("channelId", thread.channelId))
+      .unique();
+    if (liveConnection?.status === "connected") {
+      throw new Error("Outbound mailbox delivery is not enabled. Your draft has not been sent.");
+    }
     const sentAt = Date.now();
     await ctx.db.insert("messages", {
       workspaceId: thread.workspaceId,
