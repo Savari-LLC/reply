@@ -3,6 +3,7 @@ import { ChevronDown, Search } from "lucide-react";
 import { LABEL_ACCENT_STYLES } from "../constants";
 import type { InboxSummary } from "../types";
 import { SidebarRail, type RailUser } from "./sidebar-rail";
+import { WorkspaceSwitcher, type WorkspaceSwitcherData } from "./workspace-switcher";
 
 type InboxSidebarProps = {
   inboxes: InboxSummary[];
@@ -10,6 +11,8 @@ type InboxSidebarProps = {
   onSelectInbox: (inboxId: string) => void;
   currentUser?: RailUser;
   onSignOut?: () => void;
+  /** Live workspace switcher; fixture mode falls back to a static placeholder. */
+  workspace?: WorkspaceSwitcherData;
 };
 
 /** First column: 48px utility rail + fluid inbox navigation (224–248px total). */
@@ -19,22 +22,27 @@ export function InboxSidebar({
   onSelectInbox,
   currentUser,
   onSignOut,
+  workspace,
 }: InboxSidebarProps) {
   return (
     <div className="flex h-full shrink-0">
       <SidebarRail user={currentUser} onSignOut={onSignOut} />
       <div className="flex w-[clamp(176px,13vw,200px)] flex-col overflow-y-auto bg-(--inbox-nav)">
         <div className="flex flex-col gap-3 p-3">
-          <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-(--inbox-border) bg-(--inbox-surface) p-2">
-            <span
-              className="size-5 shrink-0 rounded-md bg-(--inbox-action-secondary)"
-              aria-hidden
-            />
-            <span className="min-w-0 flex-1 truncate text-sm tracking-[-0.1px] text-(--inbox-text)">
-              Reply Workspace
-            </span>
-            <ChevronDown className="size-4 shrink-0 text-(--inbox-text-muted)" aria-hidden />
-          </div>
+          {workspace ? (
+            <WorkspaceSwitcher {...workspace} />
+          ) : (
+            <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-(--inbox-border) bg-(--inbox-surface) p-2">
+              <span
+                className="size-5 shrink-0 rounded-md bg-(--inbox-action-secondary)"
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate text-sm tracking-[-0.1px] text-(--inbox-text)">
+                Reply Workspace
+              </span>
+              <ChevronDown className="size-4 shrink-0 text-(--inbox-text-muted)" aria-hidden />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
               Inbox

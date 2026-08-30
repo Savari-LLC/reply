@@ -55,6 +55,7 @@ export const TOAST_IDS = {
   priority: "inbox-priority",
   labels: "inbox-labels",
   simulate: "inbox-simulate",
+  workspace: "inbox-workspace",
 } as const;
 
 /** Deterministic fixture scenarios, selectable via `?scenario=` in development. */
