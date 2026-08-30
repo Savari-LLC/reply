@@ -10,7 +10,9 @@
 
 import type * as auth from "../auth.js";
 import type * as contextPreview from "../contextPreview.js";
+import type * as demo from "../demo.js";
 import type * as healthCheck from "../healthCheck.js";
+import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 
 import type {
@@ -22,7 +24,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   contextPreview: typeof contextPreview;
+  demo: typeof demo;
   healthCheck: typeof healthCheck;
+  seed: typeof seed;
   users: typeof users;
 }>;
 
