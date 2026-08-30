@@ -18,12 +18,18 @@ function isSameDay(a: number, b: number): boolean {
 type MessageTimelineProps = {
   threadId: string;
   messages: Message[];
+  /** Opens the full reply composer; rendered on the latest inbound message. */
+  onReply?: () => void;
 };
 
 /** Independently scrollable message list with date-separator pills. */
-export function MessageTimeline({ threadId, messages }: MessageTimelineProps) {
+export function MessageTimeline({ threadId, messages, onReply }: MessageTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const ordered = useMemo(() => [...messages].sort((a, b) => a.sentAt - b.sentAt), [messages]);
+  const lastInboundId = useMemo(
+    () => [...ordered].reverse().find((message) => message.direction === "inbound")?.id,
+    [ordered],
+  );
 
   // Pin to the newest message on thread change and after a successful send.
   useEffect(() => {
@@ -48,7 +54,10 @@ export function MessageTimeline({ threadId, messages }: MessageTimelineProps) {
                 </div>
               ) : null}
               {message.direction === "inbound" ? (
-                <InboundEmailCard message={message} />
+                <InboundEmailCard
+                  message={message}
+                  onReply={message.id === lastInboundId ? onReply : undefined}
+                />
               ) : (
                 <OutboundReplyBubble message={message} showSender={directionChanged} />
               )}

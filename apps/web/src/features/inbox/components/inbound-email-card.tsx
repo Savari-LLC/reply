@@ -2,8 +2,14 @@ import type { Message } from "../types";
 import { formatRelativeTime } from "../utils";
 import { ConversationAvatar } from "./conversation-avatar";
 
+type InboundEmailCardProps = {
+  message: Message;
+  /** Renders the teal Reply button (latest inbound message) and opens the full composer. */
+  onReply?: () => void;
+};
+
 /** Full-width white inbound email card from the mail-reply reference. */
-export function InboundEmailCard({ message }: { message: Message }) {
+export function InboundEmailCard({ message, onReply }: InboundEmailCardProps) {
   return (
     <article className="rounded-xl border border-(--inbox-border) bg-(--inbox-surface-elevated) shadow-(--inbox-shadow-card)">
       <div className="flex items-start justify-between gap-3 px-4 pt-4">
@@ -34,6 +40,17 @@ export function InboundEmailCard({ message }: { message: Message }) {
       <p className="px-4 pt-3 pb-4 text-sm leading-5 break-words whitespace-pre-line text-(--inbox-text)">
         {message.body}
       </p>
+      {onReply ? (
+        <div className="px-4 pb-4">
+          <button
+            type="button"
+            onClick={onReply}
+            className="flex h-8 items-center gap-1.5 rounded-lg bg-(--inbox-primary) px-4 text-sm font-medium tracking-[-0.1px] text-(--inbox-text-inverse) outline-none transition-colors hover:bg-(--inbox-primary)/90 focus-visible:ring-2 focus-visible:ring-(--inbox-primary) focus-visible:ring-offset-2"
+          >
+            Reply
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }
