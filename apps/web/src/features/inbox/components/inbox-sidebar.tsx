@@ -24,6 +24,7 @@ type InboxSidebarProps = {
   onSelectInbox: (inboxId: string) => void;
   currentUser?: RailUser;
   onSignOut?: () => void;
+  liveEmail?: boolean;
 };
 
 const ROW =
@@ -58,6 +59,7 @@ export function InboxSidebar({
   onSelectInbox,
   currentUser,
   onSignOut,
+  liveEmail = false,
 }: InboxSidebarProps) {
   const [composerOpen, setComposerOpen] = useState(false);
   const personalInboxes = inboxes.filter((inbox) => inbox.kind === "personal");
@@ -149,7 +151,7 @@ export function InboxSidebar({
           ))}
         </nav>
       </div>
-      <NewMessageDialog open={composerOpen} onOpenChange={setComposerOpen} />
+      <NewMessageDialog open={composerOpen} liveEmail={liveEmail} onOpenChange={setComposerOpen} />
     </div>
   );
 }

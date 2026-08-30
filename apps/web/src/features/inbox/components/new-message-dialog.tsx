@@ -1,13 +1,16 @@
 import "@react-email/editor/themes/default.css";
 
 import { EmailEditor, type EmailEditorRef } from "@react-email/editor";
+import { api } from "@reply/backend/convex/_generated/api";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@reply/ui/components/dialog";
-import { AtSign, FileText, Maximize2, Paperclip, Smile, Trash2, X } from "lucide-react";
+import { Spinner } from "@reply/ui/components/spinner";
+import { useAction, useQuery } from "convex/react";
+import { AtSign, Maximize2, Paperclip, Smile, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 
@@ -15,10 +18,9 @@ import { ComposerToolbar } from "./composer-toolbar";
 
 type NewMessageDialogProps = {
   open: boolean;
+  liveEmail: boolean;
   onOpenChange: (open: boolean) => void;
 };
-
-type Attachment = { name: string; size: number };
 
 const WORKSPACE_EMAIL = "hello@reply.dev";
 
@@ -32,12 +34,6 @@ const FIELD_INPUT =
   "h-6 min-w-24 flex-1 bg-transparent text-sm tracking-[-0.1px] text-(--inbox-text-strong) outline-none placeholder:text-(--inbox-text-muted)";
 
 const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-
-function formatFileSize(bytes: number): string {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
 
 /** Removable recipient chip, styled like the reply composer address pills. */
 function RecipientChip({ email, onRemove }: { email: string; onRemove: () => void }) {
@@ -74,13 +70,21 @@ function RecipientField({
   trailing?: React.ReactNode;
 }) {
   const [draft, setDraft] = useState("");
+  const [invalid, setInvalid] = useState(false);
 
   const commitDraft = () => {
-    const value = draft.trim().replace(/,$/, "");
-    if (!value) return;
-    if (!isEmail(value)) return; // keep invalid text in the input for editing
+    const value = draft.trim().replace(/,$/, "").toLowerCase();
+    if (!value) {
+      setInvalid(false);
+      return;
+    }
+    if (!isEmail(value)) {
+      setInvalid(true);
+      return;
+    }
     if (!recipients.includes(value)) onRecipientsChange([...recipients, value]);
     setDraft("");
+    setInvalid(false);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -109,13 +113,24 @@ function RecipientField({
           id={id}
           type="email"
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          maxLength={254}
+          aria-invalid={invalid}
+          aria-describedby={invalid ? `${id}-error` : undefined}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setInvalid(false);
+          }}
           onKeyDown={onKeyDown}
           onBlur={commitDraft}
           placeholder={recipients.length === 0 ? "name@company.com" : undefined}
           autoComplete="off"
           className={FIELD_INPUT}
         />
+        {invalid ? (
+          <span id={`${id}-error`} role="alert" className="w-full text-xs text-destructive">
+            Enter a valid email address.
+          </span>
+        ) : null}
       </div>
       {trailing}
     </div>
@@ -124,12 +139,14 @@ function RecipientField({
 
 /**
  * "New Message" composer in a dialog. The UI mirrors the expanded reply
- * composer; sending is not wired up yet (a teammate will integrate it).
+ * composer and queues authenticated live-workspace delivery through Resend.
  */
-export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) {
+export function NewMessageDialog({ open, liveEmail, onOpenChange }: NewMessageDialogProps) {
   const editorRef = useRef<EmailEditorRef>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const sendingRef = useRef(false);
+  const sendMessage = useAction(api.outboundEmail.send);
+  const composerConfig = useQuery(api.outboundEmail.getComposerConfig, liveEmail ? {} : "skip");
 
   const [to, setTo] = useState<string[]>([]);
   const [cc, setCc] = useState<string[]>([]);
@@ -137,9 +154,10 @@ export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) 
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [subject, setSubject] = useState("");
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [richEmpty, setRichEmpty] = useState(true);
   const [tall, setTall] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   // Tiptap cannot render during SSR; mount the editor client-side only.
   const [mounted, setMounted] = useState(false);
 
@@ -154,9 +172,11 @@ export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) 
     setShowCc(false);
     setShowBcc(false);
     setSubject("");
-    setAttachments([]);
     setRichEmpty(true);
     setTall(false);
+    setSending(false);
+    setSendError(null);
+    sendingRef.current = false;
   }, [open]);
 
   const editor = editorRef.current?.editor ?? null;
@@ -178,30 +198,70 @@ export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) 
     reader.readAsDataURL(file);
   };
 
-  const onAttachmentsPicked = (files: FileList | null) => {
-    if (!files?.length) return;
-    setAttachments((current) => [
-      ...current,
-      ...Array.from(files).map((file) => ({ name: file.name, size: file.size })),
-    ]);
-  };
-
   const handleDiscard = () => {
     editor?.commands.clearContent(true);
-    setAttachments([]);
     setRichEmpty(true);
+    setSendError(null);
   };
 
-  const handleSend = () => {
-    // Dummy for now: a teammate will wire this to the backend.
-    toast.info("Sending new messages is coming soon", {
-      description: "This composer is UI-only for now — your draft stays here.",
-    });
+  const handleSend = async () => {
+    if (sendingRef.current || !editorRef.current) return;
+    if (!liveEmail) {
+      toast.info("New messages need a live workspace", {
+        description: "Sign in to queue an email for delivery.",
+      });
+      return;
+    }
+    if (composerConfig?.configured !== true) return;
+
+    sendingRef.current = true;
+    setSending(true);
+    setSendError(null);
+    try {
+      const { html, text } = await editorRef.current.getEmail();
+      await sendMessage({
+        to,
+        cc,
+        bcc,
+        subject,
+        text,
+        ...(html.trim() ? { html } : {}),
+      });
+      editorRef.current.editor?.commands.clearContent(true);
+      toast.success("Message queued", {
+        description: "Your email was handed off for delivery.",
+      });
+      onOpenChange(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Your message could not be queued.";
+      setSendError(message);
+      toast.error("Your message was not sent", {
+        description: `${message} Your draft is preserved.`,
+      });
+      editorRef.current?.editor?.commands.focus("end");
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   };
+
+  const senderEmail = liveEmail ? (composerConfig?.from || "Loading sender…") : WORKSPACE_EMAIL;
+  const configurationError =
+    liveEmail && composerConfig !== undefined && !composerConfig.configured
+      ? "Email delivery is not configured for this workspace."
+      : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden rounded-xl border-(--inbox-border) p-0 sm:max-w-2xl">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!sendingRef.current) onOpenChange(nextOpen);
+      }}
+    >
+      <DialogContent
+        aria-busy={sending}
+        className="gap-0 overflow-hidden rounded-xl border-(--inbox-border) p-0 sm:max-w-2xl"
+      >
         {/* Topbar */}
         <div className="flex items-center gap-2 bg-(--inbox-surface) py-2.5 pr-12 pl-4">
           <DialogTitle className="text-sm font-medium tracking-[-0.1px] text-(--inbox-text)">
@@ -223,10 +283,16 @@ export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) 
 
         {/* Address fields */}
         <div className="flex flex-col border-y border-(--inbox-border-subtle) py-2">
-          <div className="flex min-h-8 items-center gap-2.5 px-4 py-1">
-            <span className="w-14 shrink-0 text-sm text-(--inbox-text-muted)">From:</span>
+          <div
+            role="group"
+            aria-labelledby="new-message-from-label"
+            className="flex min-h-8 items-center gap-2.5 px-4 py-1"
+          >
+            <span id="new-message-from-label" className="w-14 shrink-0 text-sm text-(--inbox-text-muted)">
+              From:
+            </span>
             <span className="rounded-full bg-[#d6ecff] px-2 py-0.5 text-xs font-medium tracking-[-0.1px] text-[#0e43a0]">
-              {WORKSPACE_EMAIL}
+              {senderEmail}
             </span>
           </div>
           <RecipientField
@@ -271,6 +337,7 @@ export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) 
               id="new-message-subject"
               type="text"
               value={subject}
+              maxLength={200}
               onChange={(event) => setSubject(event.target.value)}
               placeholder="What is this about?"
               autoComplete="off"
@@ -301,43 +368,13 @@ export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) 
           )}
         </div>
 
-        {attachments.length > 0 ? (
-          <ul className="flex flex-wrap gap-2 px-4 pb-2" aria-label="Attachments">
-            {attachments.map((attachment, index) => (
-              <li
-                key={`${attachment.name}-${index}`}
-                className="flex items-center gap-2 rounded-lg border border-(--inbox-border) px-2.5 py-1.5"
-              >
-                <span className="flex size-7 items-center justify-center rounded-md bg-(--inbox-hover)">
-                  <FileText className="size-3.5 text-(--inbox-text-subtle)" aria-hidden />
-                </span>
-                <span className="flex flex-col">
-                  <span className="max-w-28 truncate text-xs font-medium tracking-[-0.1px] text-(--inbox-text)">
-                    {attachment.name}
-                  </span>
-                  <span className="text-[11px] text-(--inbox-text-muted)">
-                    {formatFileSize(attachment.size)}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${attachment.name}`}
-                  onClick={() => setAttachments((current) => current.filter((_, i) => i !== index))}
-                  className="ml-1 flex size-5 items-center justify-center rounded text-(--inbox-text-muted) outline-none hover:bg-(--inbox-hover) hover:text-(--inbox-text) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
-                >
-                  <X className="size-3.5" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
         {/* Bottom actions */}
         <div className="flex items-center gap-1 border-t border-(--inbox-border-subtle) px-3 py-2.5">
           <button
             type="button"
-            aria-label="Attach files"
-            onClick={() => attachmentInputRef.current?.click()}
+            disabled
+            aria-label="Attachments are not supported yet"
+            title="Attachments are not supported yet"
             className={ICON_BUTTON}
           >
             <Paperclip className="size-4" aria-hidden />
@@ -361,26 +398,28 @@ export function NewMessageDialog({ open, onOpenChange }: NewMessageDialogProps) 
           <button type="button" aria-label="Discard message" onClick={handleDiscard} className={ICON_BUTTON}>
             <Trash2 className="size-4" aria-hidden />
           </button>
+          {configurationError || sendError ? (
+            <p role="alert" className="ml-2 max-w-64 truncate text-xs text-destructive">
+              {configurationError ?? sendError}
+            </p>
+          ) : null}
           <button
             type="button"
-            disabled={richEmpty || to.length === 0 || !mounted}
-            onClick={handleSend}
+            disabled={
+              richEmpty ||
+              to.length === 0 ||
+              !subject.trim() ||
+              !mounted ||
+              sending ||
+              (liveEmail && composerConfig?.configured !== true)
+            }
+            onClick={() => void handleSend()}
             className={`${SEND_BUTTON} ml-auto`}
           >
-            Send
+            {sending ? <Spinner className="size-3.5" /> : null}
+            {sending ? "Queueing…" : "Send"}
           </button>
         </div>
-
-        <input
-          ref={attachmentInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(event) => {
-            onAttachmentsPicked(event.target.files);
-            event.target.value = "";
-          }}
-        />
         <input
           ref={imageInputRef}
           type="file"

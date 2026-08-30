@@ -20,13 +20,20 @@ type InboxScreenProps = {
   onSignOut?: () => void;
   /** Teammates currently viewing the selected thread (live presence). */
   viewers?: ThreadViewer[];
+  liveEmail?: boolean;
 };
 
 /**
  * Desktop shared-inbox screen (1280–1440px). Pure presentation: all data and
  * effects flow through the `InboxController` seam.
  */
-export function InboxScreen({ controller, currentUser, onSignOut, viewers }: InboxScreenProps) {
+export function InboxScreen({
+  controller,
+  currentUser,
+  onSignOut,
+  viewers,
+  liveEmail = false,
+}: InboxScreenProps) {
   const { state } = controller;
   const [filter, setFilter] = useState<ThreadFilter>("all");
   // Incremented on deliberate keyboard selection so the workspace moves focus
@@ -68,6 +75,7 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
         onSelectInbox={controller.selectInbox}
         currentUser={currentUser}
         onSignOut={onSignOut}
+        liveEmail={liveEmail}
       />
       <div className="flex min-w-0 flex-1 py-3 pr-3">
         <div className="flex min-w-0 flex-1 overflow-hidden rounded-xl bg-(--inbox-surface)">
