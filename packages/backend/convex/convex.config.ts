@@ -11,6 +11,7 @@ const app = defineApp({
     AUTH_PRIVATE_KEY: v.string(),
     AUTH_JWKS: v.string(),
     CONTEXT_DEV_API_KEY: v.string(),
+    ALLOW_DEMO_TEST_PAGE: v.optional(v.string()),
   },
 });
 

@@ -17,6 +17,8 @@ export default defineSchema({
   workspaces: defineTable({
     name: v.string(),
     slug: v.string(),
+    // Set only by the demo seed; required before the seed may wipe a workspace.
+    demoSeed: v.optional(v.boolean()),
   }).index("by_slug", ["slug"]),
 
   memberships: defineTable({
