@@ -311,7 +311,7 @@ function ChannelRow({
         </p>
       </div>
       {canManage ? (
-        channel.provider === "gmail" || channel.provider === "outlook" ? (
+        channel.mailConnection ? (
           <MailChannelControls channel={channel} inboxId={inboxId} inboxName={inboxName} />
         ) : (
           <AlertDialog>

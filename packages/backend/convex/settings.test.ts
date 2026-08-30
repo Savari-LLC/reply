@@ -112,6 +112,52 @@ describe("channels", () => {
     expect(salesSettings.channels[0]!.provider).toBe("gmail");
   });
 
+  test("connecting the synthetic Gmail mailbox imports a company and personal mix", async () => {
+    const t = convexTest(schema, modules);
+    const { asUser, workspaceId } = await setupWorkspace(t);
+    const inboxes = await asUser.query(api.inbox.listInboxes, {});
+    const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
+
+    await asUser.mutation(api.channels.connect, {
+      inboxId: sales._id,
+      provider: "gmail",
+      address: "demo+sales@reply.example",
+    });
+
+    const threads = await t.run(async (ctx) =>
+      ctx.db
+        .query("threads")
+        .withIndex("by_workspaceId_and_lastMessageAt", (q) =>
+          q.eq("workspaceId", workspaceId),
+        )
+        .collect(),
+    );
+    const personalDomains = new Set([
+      "gmail.com",
+      "icloud.com",
+      "outlook.com",
+      "proton.me",
+      "yahoo.com",
+    ]);
+
+    expect(threads).toHaveLength(30);
+    expect(threads.filter((thread) => personalDomains.has(thread.senderDomain))).toHaveLength(18);
+    expect(threads.filter((thread) => !personalDomains.has(thread.senderDomain))).toHaveLength(12);
+    expect(threads.some((thread) => thread.senderDomain === "figma.com")).toBe(true);
+    expect(threads.some((thread) => thread.senderDomain === "gmail.com")).toBe(true);
+
+    const settings = await asUser.query(api.inboxes.listSettings, {});
+    const channel = settings
+      .find((inbox) => inbox._id === sales._id)
+      ?.channels[0];
+    expect(channel).toMatchObject({
+      provider: "gmail",
+      address: "demo+sales@reply.example",
+      threadCount: 30,
+      mailConnection: null,
+    });
+  });
+
   test("every provider connects, and addresses are validated per provider", async () => {
     const t = convexTest(schema, modules);
     const { asUser } = await setupWorkspace(t);
