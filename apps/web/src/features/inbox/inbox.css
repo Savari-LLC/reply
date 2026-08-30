@@ -1,0 +1,55 @@
+/*
+ * Feature-scoped design tokens derived from the ReplyFlow Figma frames.
+ * Scoped to .inbox-root so the application-wide theme stays untouched.
+ */
+.inbox-root {
+  /* Backgrounds and surfaces */
+  --inbox-canvas: #f0f0f0;
+  --inbox-nav: #f5f5f5;
+  --inbox-surface: #fafafa;
+  --inbox-surface-elevated: #ffffff;
+  --inbox-hover: #f0f0f0;
+  --inbox-active: #ebebeb;
+  --inbox-action-secondary: #e6e6e6;
+  --inbox-action-secondary-hover: #e0e0e0;
+
+  /* Borders */
+  --inbox-border: #e6e6e6;
+  --inbox-border-subtle: #ebebeb;
+  --inbox-border-strong: #dbdbdb;
+
+  /* Text */
+  --inbox-text-strong: #000000;
+  --inbox-text: #262626;
+  --inbox-text-subtle: #525252;
+  --inbox-text-muted: #737373;
+  --inbox-text-inverse: #fafafa;
+
+  /* Actions and system colors */
+  --inbox-primary: #0d9488;
+  --inbox-primary-text: #0f766e;
+  --inbox-success: #22c55e;
+
+  /* Shadows (Figma DrS-sm and card shadow) */
+  --inbox-shadow-sm:
+    0 1px 1px rgba(135, 135, 135, 0.05), 0 2px 2px rgba(135, 135, 135, 0.04),
+    0 5px 3px rgba(135, 135, 135, 0.03), 0 8px 3px rgba(135, 135, 135, 0.01);
+  --inbox-shadow-card:
+    -2px 5px 13px rgba(176, 176, 176, 0.05), -8px 22px 23px rgba(176, 176, 176, 0.04),
+    -19px 49px 32px rgba(176, 176, 176, 0.03), -34px 87px 37px rgba(176, 176, 176, 0.01);
+  --inbox-shadow-composer:
+    0 0 13px rgba(171, 171, 171, 0.05), 0 -24px 24px rgba(171, 171, 171, 0.04),
+    0 -54px 32px rgba(171, 171, 171, 0.03), 0 -95px 38px rgba(171, 171, 171, 0.01);
+
+  color: var(--inbox-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox-root *,
+  .inbox-root *::before,
+  .inbox-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
