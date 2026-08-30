@@ -666,6 +666,7 @@ export function ConvexInboxPage() {
         currentUser={railUser}
         onSignOut={() => void signOut()}
         viewers={viewers}
+        liveEmail
         workspace={workspaceSwitcher}
       />
     </>

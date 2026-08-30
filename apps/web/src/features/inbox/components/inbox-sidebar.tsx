@@ -27,6 +27,7 @@ type InboxSidebarProps = {
   onSelectInbox: (inboxId: string, view?: InboxView) => void;
   currentUser?: RailUser;
   onSignOut?: () => void;
+  liveEmail?: boolean;
   /** Live workspace switcher; fixture mode falls back to a static placeholder. */
   workspace?: WorkspaceSwitcherData;
 };
@@ -65,6 +66,7 @@ export function InboxSidebar({
   onSelectInbox,
   currentUser,
   onSignOut,
+  liveEmail = false,
   workspace,
 }: InboxSidebarProps) {
   const [composerOpen, setComposerOpen] = useState(false);
@@ -166,7 +168,7 @@ export function InboxSidebar({
           ))}
         </nav>
       </div>
-      <NewMessageDialog open={composerOpen} onOpenChange={setComposerOpen} />
+      <NewMessageDialog open={composerOpen} liveEmail={liveEmail} onOpenChange={setComposerOpen} />
     </div>
   );
 }

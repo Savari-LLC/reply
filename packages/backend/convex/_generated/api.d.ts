@@ -27,6 +27,7 @@ import type * as mail from "../mail.js";
 import type * as mailActions from "../mailActions.js";
 import type * as mailProvider from "../mailProvider.js";
 import type * as members from "../members.js";
+import type * as outboundEmail from "../outboundEmail.js";
 import type * as presence from "../presence.js";
 import type * as seed from "../seed.js";
 import type * as simulate from "../simulate.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   mailActions: typeof mailActions;
   mailProvider: typeof mailProvider;
   members: typeof members;
+  outboundEmail: typeof outboundEmail;
   presence: typeof presence;
   seed: typeof seed;
   simulate: typeof simulate;
