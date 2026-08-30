@@ -15,17 +15,24 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import type { OperationState, ThreadSummary } from "../types";
+import type { CommentDraft, OperationState, Teammate, ThreadSummary } from "../types";
+import { formatFileSize } from "../utils";
+import { CommentComposer } from "./comment-composer";
 import { ComposerToolbar } from "./composer-toolbar";
 
 type ReplyComposerProps = {
   thread: ThreadSummary;
+  /** Mention candidates for the collapsed comment box. */
+  teammates: Teammate[];
   draftState: OperationState;
   sendState: OperationState;
+  commentState: OperationState;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onGenerateDraft: () => Promise<string>;
   onSendReply: (body: string, bodyHtml?: string) => Promise<void>;
+  /** Posts an internal comment (collapsed mode); never emailed. */
+  onAddComment: (draft: CommentDraft) => Promise<void>;
 };
 
 type Attachment = { name: string; size: number };
@@ -60,31 +67,30 @@ function readFileAsDataUrl(file: File): Promise<{ url: string }> {
   });
 }
 
-function formatFileSize(bytes: number): string {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
+
 
 /**
- * Two-mode ReplyFlow composer. Collapsed: a plain text field with Send.
- * Expanded (via a Reply action): the full Figma composer — From/To/Subject
- * fields, formatting toolbar, rich text with inline images, attachments,
- * Draft with Copilot, and Send. Toasts come from the controller.
+ * Two-mode ReplyFlow composer. Collapsed: an internal-comment box (Missive
+ * style) that posts to the thread's private timeline. Expanded (via a Reply
+ * action or "/"): the full Figma email composer — From/To/Subject fields,
+ * formatting toolbar, rich text with inline images, attachments, Draft with
+ * Copilot, and Send. Toasts come from the controller.
  */
 export function ReplyComposer({
   thread,
+  teammates,
   draftState,
   sendState,
+  commentState,
   expanded,
   onExpandedChange,
   onGenerateDraft,
   onSendReply,
+  onAddComment,
 }: ReplyComposerProps) {
   const editorRef = useRef<EmailEditorRef>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const collapsedRef = useRef<HTMLTextAreaElement>(null);
 
   const [plainText, setPlainText] = useState("");
   const [richEmpty, setRichEmpty] = useState(true);
@@ -103,6 +109,7 @@ export function ReplyComposer({
 
   const drafting = draftState.status === "loading";
   const sending = sendState.status === "loading";
+  const commenting = commentState.status === "loading";
   const editor = editorRef.current?.editor ?? null;
 
   const expand = () => {
@@ -159,19 +166,6 @@ export function ReplyComposer({
     }
   };
 
-  const handleSendPlain = async () => {
-    if (sendingRef.current || !plainText.trim()) return;
-    sendingRef.current = true;
-    try {
-      await onSendReply(plainText);
-      setPlainText("");
-    } catch {
-      collapsedRef.current?.focus();
-    } finally {
-      sendingRef.current = false;
-    }
-  };
-
   const handleInsertImage = () => imageInputRef.current?.click();
 
   const onImagePicked = async (file: File | undefined) => {
@@ -193,45 +187,14 @@ export function ReplyComposer({
   if (!expanded) {
     return (
       <div className="p-4 pt-0">
-        <div className="rounded-xl border border-(--inbox-border) bg-(--inbox-surface-elevated) shadow-(--inbox-shadow-composer)">
-          <textarea
-            ref={collapsedRef}
-            value={plainText}
-            onChange={(event) => setPlainText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "/" && !plainText) {
-                event.preventDefault();
-                expand();
-              }
-            }}
-            rows={1}
-            aria-label="Reply"
-            placeholder='Write, or press "/" for commands...'
-            className="max-h-40 min-h-11 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm leading-5 tracking-[-0.1px] text-(--inbox-text) outline-none placeholder:text-(--inbox-text-muted)"
-          />
-          <div className="flex items-center justify-between gap-3 px-3 pb-2.5">
-            <div className="flex items-center gap-0.5">
-              <button type="button" aria-label="Open full composer to attach files" onClick={expand} className={ICON_BUTTON}>
-                <Paperclip className="size-4" aria-hidden />
-              </button>
-              <button type="button" aria-label="Open full composer to mention" onClick={expand} className={ICON_BUTTON}>
-                <AtSign className="size-4" aria-hidden />
-              </button>
-              <button type="button" aria-label="Open full composer" onClick={expand} className={ICON_BUTTON}>
-                <Smile className="size-4" aria-hidden />
-              </button>
-            </div>
-            <button
-              type="button"
-              disabled={!plainText.trim() || sending}
-              onClick={handleSendPlain}
-              className={SEND_BUTTON}
-            >
-              {sending ? <Spinner className="size-3.5" /> : null}
-              Send
-            </button>
-          </div>
-        </div>
+        <CommentComposer
+          teammates={teammates}
+          value={plainText}
+          onChange={setPlainText}
+          posting={commenting}
+          onExpand={expand}
+          onSubmit={onAddComment}
+        />
       </div>
     );
   }

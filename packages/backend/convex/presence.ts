@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { requireCurrentUser } from "./authHelpers";
+import { avatarUrl } from "./lib/avatar";
 
 export const presence = new Presence(components.presence);
 
@@ -44,8 +45,8 @@ export const list = query({
           online,
           lastDisconnected,
           name: user?.name ?? user?.username ?? undefined,
-          // `image` only exists on the OAuth variant of the users union.
-          image: user && "image" in user ? (user.image ?? undefined) : undefined,
+          // Uploaded avatar wins over the auth provider's image.
+          image: user ? ((await avatarUrl(ctx, user)) ?? undefined) : undefined,
         };
       }),
     );

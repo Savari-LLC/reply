@@ -9,10 +9,7 @@ import {
   getInboxChannels,
   inboxKind,
 } from "./lib/access";
-
-function displayName(user: Doc<"users">) {
-  return user.name ?? user.username ?? "Teammate";
-}
+import { avatarUrl, displayName } from "./lib/avatar";
 
 async function isUnread(
   ctx: QueryCtx,
@@ -243,20 +240,138 @@ export const getThread = query({
           }
         : null,
       messages: await Promise.all(
-        messages.map(async (message) => ({
-          _id: message._id,
-          direction: message.direction,
-          body: message.body,
-          sentAt: message.sentAt,
-          senderName: message.senderName ?? null,
-          author: await (async () => {
-            if (!message.authorId) return null;
-            const author = await ctx.db.get(message.authorId);
-            return author ? displayName(author) : null;
-          })(),
-        })),
+        messages.map(async (message) => {
+          const author = message.authorId ? await ctx.db.get(message.authorId) : null;
+          return {
+            _id: message._id,
+            direction: message.direction,
+            body: message.body,
+            sentAt: message.sentAt,
+            senderName: message.senderName ?? null,
+            author: author ? displayName(author) : null,
+            authorImageUrl: author ? await avatarUrl(ctx, author) : null,
+          };
+        }),
+      ),
+      comments: await Promise.all(
+        (
+          await ctx.db
+            .query("notes")
+            .withIndex("by_threadId", (q) => q.eq("threadId", thread._id))
+            .collect()
+        ).map(async (note) => {
+          const author = await ctx.db.get(note.authorId);
+          const mentionRows = await ctx.db
+            .query("mentions")
+            .withIndex("by_noteId", (q) => q.eq("noteId", note._id))
+            .collect();
+          const mentions = await Promise.all(
+            mentionRows.map(async (mention) => {
+              const mentioned = await ctx.db.get(mention.mentionedUserId);
+              return {
+                userId: mention.mentionedUserId,
+                name: mentioned ? displayName(mentioned) : "Teammate",
+              };
+            }),
+          );
+          const attachments = await Promise.all(
+            (note.attachments ?? []).map(async (attachment) => ({
+              url: await ctx.storage.getUrl(attachment.storageId),
+              name: attachment.name,
+              size: attachment.size,
+              type: attachment.type,
+            })),
+          );
+          return {
+            _id: note._id,
+            body: note.body,
+            sentAt: note._creationTime,
+            authorId: note.authorId,
+            authorName: author ? displayName(author) : "Teammate",
+            authorImageUrl: author ? await avatarUrl(ctx, author) : null,
+            mentions,
+            attachments: attachments.filter(
+              (attachment): attachment is typeof attachment & { url: string } =>
+                attachment.url !== null,
+            ),
+          };
+        }),
       ),
     };
+  },
+});
+
+const MAX_COMMENT_ATTACHMENTS = 5;
+
+/** Short-lived URL the browser POSTs a comment attachment to. */
+export const generateCommentUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requireWorkspaceContext(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Internal comment on a thread; never sent to the customer. */
+export const addComment = mutation({
+  args: {
+    threadId: v.id("threads"),
+    body: v.string(),
+    // Teammates tagged with "@" in the comment body.
+    mentionedUserIds: v.optional(v.array(v.id("users"))),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          name: v.string(),
+          size: v.number(),
+          type: v.string(),
+        }),
+      ),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const body = args.body.trim();
+    const attachments = args.attachments ?? [];
+    if (body.length === 0 && attachments.length === 0) {
+      throw new Error("Comment body cannot be empty");
+    }
+    if (attachments.length > MAX_COMMENT_ATTACHMENTS) {
+      throw new Error(`Comments can include at most ${MAX_COMMENT_ATTACHMENTS} files`);
+    }
+    const context = await requireWorkspaceContext(ctx);
+    const thread = await requireThread(ctx, context, args.threadId);
+
+    // Only workspace members can be mentioned; silently drop anything else.
+    const mentionedUserIds: Id<"users">[] = [];
+    for (const userId of new Set(args.mentionedUserIds ?? [])) {
+      const membership = await ctx.db
+        .query("memberships")
+        .withIndex("by_workspaceId_and_userId", (q) =>
+          q.eq("workspaceId", context.workspace._id).eq("userId", userId),
+        )
+        .unique();
+      if (membership) mentionedUserIds.push(userId);
+    }
+
+    const noteId = await ctx.db.insert("notes", {
+      workspaceId: thread.workspaceId,
+      threadId: thread._id,
+      authorId: context.user._id,
+      body,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
+    for (const mentionedUserId of mentionedUserIds) {
+      await ctx.db.insert("mentions", {
+        workspaceId: thread.workspaceId,
+        threadId: thread._id,
+        noteId,
+        mentionedUserId,
+      });
+    }
+    return null;
   },
 });
 
@@ -269,8 +384,14 @@ export const listTeammates = query({
       .withIndex("by_workspaceId", (q) => q.eq("workspaceId", context.workspace._id))
       .collect();
     const users = await Promise.all(memberships.map((m) => ctx.db.get(m.userId)));
-    return users.flatMap((member) =>
-      member ? [{ _id: member._id, name: displayName(member) }] : [],
+    return await Promise.all(
+      users
+        .flatMap((member) => (member ? [member] : []))
+        .map(async (member) => ({
+          _id: member._id,
+          name: displayName(member),
+          imageUrl: await avatarUrl(ctx, member),
+        })),
     );
   },
 });

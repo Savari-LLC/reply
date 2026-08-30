@@ -182,6 +182,17 @@ export default defineSchema({
     threadId: v.id("threads"),
     authorId: v.id("users"),
     body: v.string(),
+    // Small bounded list of teammate-uploaded files shown with the comment.
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          name: v.string(),
+          size: v.number(),
+          type: v.string(),
+        }),
+      ),
+    ),
   }).index("by_threadId", ["threadId"]),
 
   mentions: defineTable({

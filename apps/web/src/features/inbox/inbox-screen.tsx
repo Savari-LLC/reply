@@ -55,6 +55,7 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
       generateDraft: () => controller.generateDraft(requireThread()),
       sendReply: (body, bodyHtml) => controller.sendReply(requireThread(), body, bodyHtml),
+      addComment: (draft) => controller.addComment(requireThread(), draft),
       retry: () => controller.retryLoad("thread"),
     };
   }, [controller, state.selectedThreadId]);

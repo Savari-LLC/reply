@@ -4,6 +4,7 @@ import { MailOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type {
+  CommentDraft,
   OperationKey,
   OperationState,
   Teammate,
@@ -27,6 +28,7 @@ export type WorkspaceActions = {
   setLabels: (labelIds: string[]) => Promise<void>;
   generateDraft: () => Promise<string>;
   sendReply: (body: string, bodyHtml?: string) => Promise<void>;
+  addComment: (draft: CommentDraft) => Promise<void>;
   retry: () => Promise<void>;
 };
 
@@ -177,6 +179,7 @@ export function ConversationWorkspace({
           <MessageTimeline
             threadId={detail.thread.id}
             messages={detail.messages}
+            comments={detail.comments}
             onReply={() => setComposerExpanded(true)}
             companyChip={{
               status: companyStatus,
@@ -189,12 +192,15 @@ export function ConversationWorkspace({
           <ReplyComposer
             key={detail.thread.id}
             thread={detail.thread}
+            teammates={teammates}
             draftState={operations.draft}
             sendState={operations.send}
+            commentState={operations.comment}
             expanded={composerExpanded}
             onExpandedChange={setComposerExpanded}
             onGenerateDraft={actions.generateDraft}
             onSendReply={actions.sendReply}
+            onAddComment={actions.addComment}
           />
         </div>
         {panelOpen ? (

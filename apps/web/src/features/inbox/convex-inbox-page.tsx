@@ -12,6 +12,7 @@ import { InboxScreen } from "./inbox-screen";
 import type { InboxController, LoadScope } from "./model";
 import type {
   AsyncStatus,
+  CommentDraft,
   CompanyProfile,
   InboxScreenState,
   InboxSummary,
@@ -22,6 +23,7 @@ import type {
   ScreenStatus,
   Teammate,
   ThreadDetail,
+  ThreadComment,
   ThreadPaneStatus,
   ThreadSummary,
   ThreadViewer,
@@ -103,6 +105,7 @@ function mapTeammate(row: TeammateRow): Teammate {
     id: row._id,
     name: row.name,
     initials: getInitials(row.name),
+    avatarUrl: row.imageUrl ?? undefined,
     role: "Teammate",
   };
 }
@@ -140,8 +143,25 @@ function mapMessages(detail: ThreadDetailRow): Message[] {
         ? (message.senderName ?? detail.senderName)
         : (message.author ?? "Teammate"),
     authorEmail: message.direction === "inbound" ? detail.senderEmail : undefined,
+    authorImageUrl:
+      message.direction === "outbound" ? (message.authorImageUrl ?? undefined) : undefined,
+    recipientEmail: message.direction === "outbound" ? detail.senderEmail : undefined,
     body: message.body,
     sentAt: message.sentAt,
+  }));
+}
+
+function mapComments(detail: ThreadDetailRow): ThreadComment[] {
+  return detail.comments.map((comment) => ({
+    id: comment._id,
+    threadId: detail._id,
+    authorId: comment.authorId,
+    authorName: comment.authorName,
+    authorImageUrl: comment.authorImageUrl ?? undefined,
+    body: comment.body,
+    sentAt: comment.sentAt,
+    mentions: comment.mentions,
+    attachments: comment.attachments,
   }));
 }
 
@@ -192,6 +212,8 @@ export function ConvexInboxPage() {
   const assignMutation = useMutation(api.inbox.assign);
   const setStatusMutation = useMutation(api.inbox.setStatus);
   const sendReplyMutation = useMutation(api.inbox.sendReply);
+  const addCommentMutation = useMutation(api.inbox.addComment);
+  const generateCommentUploadUrl = useMutation(api.inbox.generateCommentUploadUrl);
   const simulateMutation = useMutation(api.simulate.simulateIncomingEmail);
   const enrichThread = useAction(api.companyContext.enrichThread);
 
@@ -301,6 +323,7 @@ export function ConvexInboxPage() {
           companyName: company?.name,
         },
         messages: mapMessages(detailRow),
+        comments: mapComments(detailRow),
         company,
         companyStatus,
       };
@@ -456,6 +479,45 @@ export function ConvexInboxPage() {
       });
     };
 
+    const addComment = async (threadId: string, draft: CommentDraft) => {
+      setOperation("comment", "loading");
+      try {
+        // Upload attachments first; the mutation links the stored files.
+        const attachments = await Promise.all(
+          (draft.files ?? []).map(async (file) => {
+            const uploadUrl = await generateCommentUploadUrl({});
+            const response = await fetch(uploadUrl, {
+              method: "POST",
+              headers: { "Content-Type": file.type || "application/octet-stream" },
+              body: file,
+            });
+            if (!response.ok) throw new Error(`Uploading ${file.name} failed`);
+            const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+            return {
+              storageId,
+              name: file.name,
+              size: file.size,
+              type: file.type || "application/octet-stream",
+            };
+          }),
+        );
+        await addCommentMutation({
+          threadId: threadId as Id<"threads">,
+          body: draft.body,
+          mentionedUserIds: draft.mentionedUserIds?.map((id) => id as Id<"users">),
+          attachments: attachments.length > 0 ? attachments : undefined,
+        });
+      } catch (error) {
+        setOperation("comment", "error", "Your comment could not be posted.");
+        toast.error("Your comment could not be posted.", {
+          id: TOAST_IDS.comment,
+          description: "Your text is preserved — try again.",
+        });
+        throw error;
+      }
+      setOperation("comment", "success");
+    };
+
     const simulateEmail = async (inboxId: string) =>
       runMutation(
         "simulate",
@@ -487,6 +549,7 @@ export function ConvexInboxPage() {
       setLabels,
       generateDraft,
       sendReply,
+      addComment,
       simulateEmail,
       retryLoad,
     };
@@ -496,6 +559,8 @@ export function ConvexInboxPage() {
     assignMutation,
     setStatusMutation,
     sendReplyMutation,
+    addCommentMutation,
+    generateCommentUploadUrl,
     simulateMutation,
     markRead,
     runSetup,
