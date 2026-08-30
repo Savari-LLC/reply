@@ -6,7 +6,7 @@ type ThreadRowProps = {
   thread: ThreadSummary;
   assignee: Teammate | null;
   selected: boolean;
-  onSelect: (threadId: string) => void;
+  onSelect: (threadId: string, viaKeyboard: boolean) => void;
 };
 
 /** 80px thread-list row: avatar + three fixed-height content lines. */
@@ -14,7 +14,8 @@ export function ThreadRow({ thread, assignee, selected, onSelect }: ThreadRowPro
   return (
     <button
       type="button"
-      onClick={() => onSelect(thread.id)}
+      // detail === 0 means the click came from a keyboard activation.
+      onClick={(event) => onSelect(thread.id, event.detail === 0)}
       aria-current={selected ? "true" : undefined}
       className={`flex h-20 w-full items-start gap-3 rounded-xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
         selected ? "bg-(--inbox-active)" : "hover:bg-(--inbox-hover)"

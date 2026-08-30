@@ -1,7 +1,7 @@
 import { Button } from "@reply/ui/components/button";
 import { Skeleton } from "@reply/ui/components/skeleton";
 import { MailOpen } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   OperationKey,
@@ -36,6 +36,8 @@ export type ConversationWorkspaceProps = {
   teammates: Teammate[];
   operations: Record<OperationKey, OperationState>;
   actions: WorkspaceActions;
+  /** Increments on deliberate keyboard thread selection; moves focus to the heading when ready. */
+  headingFocusToken?: number;
 };
 
 /**
@@ -49,9 +51,21 @@ export function ConversationWorkspace({
   teammates,
   operations,
   actions,
+  headingFocusToken = 0,
 }: ConversationWorkspaceProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const panelTriggerRef = useRef<HTMLButtonElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const lastFocusToken = useRef(headingFocusToken);
+
+  // Focus the conversation heading after a keyboard-driven selection settles,
+  // without stealing focus during background revalidation.
+  useEffect(() => {
+    if (status === "ready" && detail && headingFocusToken !== lastFocusToken.current) {
+      lastFocusToken.current = headingFocusToken;
+      headingRef.current?.focus();
+    }
+  }, [status, detail, headingFocusToken]);
 
   const closePanel = () => {
     setPanelOpen(false);
@@ -128,6 +142,7 @@ export function ConversationWorkspace({
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Conversation">
       <ConversationHeader
         thread={detail.thread}
+        headingRef={headingRef}
         teammates={teammates}
         operations={operations}
         actions={actions}

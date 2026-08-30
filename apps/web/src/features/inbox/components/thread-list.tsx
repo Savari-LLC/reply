@@ -22,7 +22,7 @@ export type ThreadListProps = {
   error?: string;
   filter: ThreadFilter;
   onFilterChange: (filter: ThreadFilter) => void;
-  onSelectThread: (threadId: string) => void;
+  onSelectThread: (threadId: string, viaKeyboard: boolean) => void;
   onClearFilters: () => void;
   onRetry: () => Promise<void>;
 };
