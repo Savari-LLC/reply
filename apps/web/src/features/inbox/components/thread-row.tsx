@@ -9,7 +9,12 @@ type ThreadRowProps = {
   onSelect: (threadId: string, viaKeyboard: boolean) => void;
 };
 
-/** 80px thread-list row: avatar + three fixed-height content lines. */
+/**
+ * Thread-list row: avatar plus name/subject/preview lines, with urgency,
+ * labels, and the assignee on a dedicated metadata row so badges never
+ * overlap the text. The metadata row always renders to keep row heights
+ * uniform.
+ */
 export function ThreadRow({ thread, assignee, selected, onSelect }: ThreadRowProps) {
   return (
     <button
@@ -17,7 +22,7 @@ export function ThreadRow({ thread, assignee, selected, onSelect }: ThreadRowPro
       // detail === 0 means the click came from a keyboard activation.
       onClick={(event) => onSelect(thread.id, event.detail === 0)}
       aria-current={selected ? "true" : undefined}
-      className={`flex h-20 w-full items-start gap-3 rounded-xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
+      className={`flex w-full items-start gap-3 rounded-xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
         selected ? "bg-(--inbox-active)" : "hover:bg-(--inbox-hover)"
       }`}
     >
@@ -49,35 +54,35 @@ export function ThreadRow({ thread, assignee, selected, onSelect }: ThreadRowPro
             {formatRelativeTime(thread.lastActivityAt)}
           </span>
         </span>
-        <span className="flex h-5 items-center gap-1.5">
-          <span className="min-w-0 truncate text-sm text-(--inbox-text-subtle)">
-            {thread.subject}
-          </span>
+        <span className="block h-5 truncate text-sm leading-5 text-(--inbox-text-subtle)">
+          {thread.subject}
+        </span>
+        <span className="block h-4 truncate text-xs leading-4 tracking-[-0.1px] text-(--inbox-text-muted)">
+          {thread.preview}
+        </span>
+        <span className="mt-1 flex h-5 items-center gap-1.5">
           {thread.priority === "urgent" ? (
             <span className="bg-destructive/10 text-destructive shrink-0 rounded-full px-1.5 text-xs font-medium tracking-[-0.1px]">
               Urgent
             </span>
           ) : null}
-        </span>
-        <span className="flex h-4 items-center gap-1.5">
-          <span className="min-w-0 flex-1 truncate text-xs tracking-[-0.1px] text-(--inbox-text-muted)">
-            {thread.preview}
+          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+            {thread.labels.map((label) => {
+              const accent = LABEL_ACCENT_STYLES[label.accent];
+              return (
+                <span
+                  key={label.id}
+                  className="shrink-0 rounded-full px-1.5 text-xs font-medium tracking-[-0.1px]"
+                  style={{ backgroundColor: accent.bg, color: accent.text }}
+                >
+                  {label.name}
+                </span>
+              );
+            })}
           </span>
-          {thread.labels.map((label) => {
-            const accent = LABEL_ACCENT_STYLES[label.accent];
-            return (
-              <span
-                key={label.id}
-                className="shrink-0 rounded-full px-1.5 text-xs font-medium tracking-[-0.1px]"
-                style={{ backgroundColor: accent.bg, color: accent.text }}
-              >
-                {label.name}
-              </span>
-            );
-          })}
           {assignee ? (
             <span
-              className="flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-(--inbox-text)"
+              className="ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-(--inbox-text)"
               style={{ backgroundColor: getAvatarTint(assignee.name) }}
               title={`Assigned to ${assignee.name}`}
             >
