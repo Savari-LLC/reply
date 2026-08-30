@@ -1,6 +1,39 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+/** Automatic LLM triage categories for inbound business email. */
+export const emailCategoryValidator = v.union(
+  v.literal("quote_request"),
+  v.literal("booking"),
+  v.literal("technical"),
+  v.literal("billing"),
+  v.literal("complaint"),
+  v.literal("general"),
+);
+
+/** Lifecycle of an automatic Devin investigation on a technical thread. */
+export const investigationStatusValidator = v.union(
+  v.literal("queued"),
+  v.literal("investigating"),
+  v.literal("issue_found"),
+  v.literal("fixing"),
+  v.literal("testing"),
+  v.literal("creating_pr"),
+  v.literal("completed"),
+  v.literal("failed"),
+);
+
+/** Why an investigation failed; drives the recovery CTA in the UI. */
+export const investigationErrorValidator = v.object({
+  code: v.union(
+    v.literal("not_configured"),
+    v.literal("no_repository"),
+    v.literal("start_failed"),
+    v.literal("investigation_failed"),
+  ),
+  message: v.string(),
+});
+
 export default defineSchema({
   // App-owned people created by Auth v2 callbacks. The auth core maps each
   // provider account to the resulting app user ID used by authenticated calls.
@@ -37,6 +70,8 @@ export default defineSchema({
     onboardingCompletedAt: v.optional(v.number()),
     // Set only by the demo seed; required before the seed may wipe a workspace.
     demoSeed: v.optional(v.boolean()),
+    // Git repository Devin investigates when a technical email arrives.
+    devinRepoUrl: v.optional(v.string()),
   }).index("by_slug", ["slug"]),
 
   memberships: defineTable({
@@ -128,6 +163,15 @@ export default defineSchema({
     // Join key to companyProfiles.domain for Context.dev enrichment.
     senderDomain: v.string(),
     lastMessageAt: v.number(),
+    // Written by the automatic LLM triage that runs after an email is stored.
+    classification: v.optional(
+      v.object({
+        category: emailCategoryValidator,
+        confidence: v.number(),
+        shortSummary: v.string(),
+        classifiedAt: v.number(),
+      }),
+    ),
   })
     .index("by_inboxId_and_status_and_lastMessageAt", [
       "inboxId",
@@ -236,4 +280,35 @@ export default defineSchema({
     socials: v.optional(v.array(v.object({ type: v.string(), url: v.string() }))),
     fetchedAt: v.number(),
   }).index("by_workspaceId_and_domain", ["workspaceId", "domain"]),
+
+  // One automatic Devin investigation per technical thread. Convex is the
+  // source of truth: the Devin poller writes here and the UI subscribes.
+  investigations: defineTable({
+    workspaceId: v.id("workspaces"),
+    threadId: v.id("threads"),
+    // The inbound email message that triggered the investigation.
+    emailId: v.id("messages"),
+    category: emailCategoryValidator,
+    confidence: v.number(),
+    status: investigationStatusValidator,
+    // Devin's own stage label; kept for debugging, never shown raw in the UI.
+    currentStage: v.optional(v.string()),
+    devinSessionId: v.optional(v.string()),
+    devinSessionUrl: v.optional(v.string()),
+    // Business-language findings maintained by Devin's structured output.
+    customerFriendlySummary: v.optional(v.string()),
+    impact: v.optional(v.string()),
+    rootCause: v.optional(v.string()),
+    fixSummary: v.optional(v.string()),
+    testsPassed: v.optional(v.boolean()),
+    pullRequestUrl: v.optional(v.string()),
+    pullRequestNumber: v.optional(v.number()),
+    // Completed without a reproducible software issue.
+    noIssueFound: v.optional(v.boolean()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    error: v.optional(investigationErrorValidator),
+  })
+    .index("by_threadId", ["threadId"])
+    .index("by_workspaceId", ["workspaceId"]),
 });

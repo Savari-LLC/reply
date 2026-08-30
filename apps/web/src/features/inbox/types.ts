@@ -20,7 +20,8 @@ export type OperationKey =
   | "draft"
   | "send"
   | "comment"
-  | "simulate";
+  | "simulate"
+  | "investigation";
 
 export type OperationState = {
   status: AsyncStatus;
@@ -56,6 +57,57 @@ export type Teammate = {
   role: string;
 };
 
+/** Automatic LLM triage category for an inbound thread. */
+export type EmailCategory =
+  | "quote_request"
+  | "booking"
+  | "technical"
+  | "billing"
+  | "complaint"
+  | "general";
+
+/** Result of the automatic email classification stored on the thread. */
+export type Classification = {
+  category: EmailCategory;
+  confidence: number;
+  shortSummary: string;
+};
+
+export type InvestigationStatus =
+  | "queued"
+  | "investigating"
+  | "issue_found"
+  | "fixing"
+  | "testing"
+  | "creating_pr"
+  | "completed"
+  | "failed";
+
+export type InvestigationErrorCode =
+  | "not_configured"
+  | "no_repository"
+  | "start_failed"
+  | "investigation_failed";
+
+/** Live state of the automatic Devin investigation for a technical thread. */
+export type Investigation = {
+  id: string;
+  status: InvestigationStatus;
+  /** What happened, in plain business language. */
+  summary?: string;
+  impact?: string;
+  rootCause?: string;
+  fixSummary?: string;
+  testsPassed?: boolean;
+  pullRequestUrl?: string;
+  pullRequestNumber?: number;
+  /** Completed without finding a reproducible software issue. */
+  noIssueFound?: boolean;
+  error?: { code: InvestigationErrorCode; message: string };
+  startedAt?: number;
+  completedAt?: number;
+};
+
 export type ThreadSummary = {
   id: string;
   inboxId: string;
@@ -72,6 +124,8 @@ export type ThreadSummary = {
   labels: ThreadLabel[];
   unread: boolean;
   lastActivityAt: number;
+  /** Set once the automatic LLM triage has run. */
+  classification?: Classification;
 };
 
 export type Message = {
@@ -150,6 +204,8 @@ export type ThreadDetail = {
   company?: CompanyProfile;
   /** Defaults to "ready"/"unavailable" based on `company` when omitted. */
   companyStatus?: CompanyStatus;
+  /** Automatic Devin investigation, when one exists for this thread. */
+  investigation?: Investigation;
 };
 
 /** A teammate currently viewing the selected thread (live presence). */

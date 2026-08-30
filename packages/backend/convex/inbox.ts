@@ -75,6 +75,13 @@ async function threadSummary(
       : null,
     labels,
     unread: await isUnread(ctx, actorId, thread),
+    classification: thread.classification
+      ? {
+          category: thread.classification.category,
+          confidence: thread.classification.confidence,
+          shortSummary: thread.classification.shortSummary,
+        }
+      : null,
   };
 }
 
@@ -227,9 +234,31 @@ export const getThread = query({
         q.eq("workspaceId", context.workspace._id).eq("domain", thread.senderDomain),
       )
       .unique();
+    const investigation = await ctx.db
+      .query("investigations")
+      .withIndex("by_threadId", (q) => q.eq("threadId", thread._id))
+      .order("desc")
+      .first();
     return {
       ...(await threadSummary(ctx, context.user._id, thread, inbox?._id ?? null)),
       inboxName: inbox?.name ?? "Inbox",
+      investigation: investigation
+        ? {
+            _id: investigation._id,
+            status: investigation.status,
+            customerFriendlySummary: investigation.customerFriendlySummary ?? null,
+            impact: investigation.impact ?? null,
+            rootCause: investigation.rootCause ?? null,
+            fixSummary: investigation.fixSummary ?? null,
+            testsPassed: investigation.testsPassed ?? null,
+            pullRequestUrl: investigation.pullRequestUrl ?? null,
+            pullRequestNumber: investigation.pullRequestNumber ?? null,
+            noIssueFound: investigation.noIssueFound ?? false,
+            error: investigation.error ?? null,
+            startedAt: investigation.startedAt ?? null,
+            completedAt: investigation.completedAt ?? null,
+          }
+        : null,
       companyProfile: companyProfile
         ? {
             name: companyProfile.name,

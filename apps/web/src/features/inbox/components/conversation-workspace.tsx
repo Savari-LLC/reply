@@ -16,6 +16,8 @@ import type {
 } from "../types";
 import { CompanyProfilePanel } from "./company-profile-panel";
 import { ConversationHeader } from "./conversation-header";
+import { InvestigationCard } from "./investigation-card";
+import { InvestigationModal } from "./investigation-modal";
 import { MessageTimeline } from "./message-timeline";
 import { ReplyComposer } from "./reply-composer";
 
@@ -29,6 +31,8 @@ export type WorkspaceActions = {
   generateDraft: (currentDraft?: string) => Promise<string>;
   sendReply: (body: string, bodyHtml?: string) => Promise<void>;
   addComment: (draft: CommentDraft) => Promise<void>;
+  retryInvestigation: (investigationId: string) => Promise<void>;
+  connectRepository: (repoUrl: string) => Promise<void>;
   retry: () => Promise<void>;
 };
 
@@ -64,6 +68,7 @@ export function ConversationWorkspace({
   const [panelOpen, setPanelOpen] = useState(false);
   // Collapsed by default; a Reply action opens the full composer.
   const [composerExpanded, setComposerExpanded] = useState(false);
+  const [investigationOpen, setInvestigationOpen] = useState(false);
   const panelTriggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lastFocusToken = useRef(headingFocusToken);
@@ -76,6 +81,12 @@ export function ConversationWorkspace({
       headingRef.current?.focus();
     }
   }, [status, detail, headingFocusToken]);
+
+  // Selecting another thread must never carry the sheet over to it.
+  const threadId = detail?.thread.id;
+  useEffect(() => {
+    setInvestigationOpen(false);
+  }, [threadId]);
 
   const closePanel = () => {
     setPanelOpen(false);
@@ -188,6 +199,15 @@ export function ConversationWorkspace({
               onOpen: () => setPanelOpen(true),
             }}
           />
+          {detail.investigation ? (
+            <div className="px-4 pb-3">
+              <InvestigationCard
+                investigation={detail.investigation}
+                onOpen={() => setInvestigationOpen(true)}
+                investigationState={operations.investigation}
+              />
+            </div>
+          ) : null}
           {/* Keyed so a thread switch resets the local draft text. */}
           <ReplyComposer
             key={detail.thread.id}
@@ -212,6 +232,22 @@ export function ConversationWorkspace({
           />
         ) : null}
       </div>
+      {detail.investigation ? (
+        <InvestigationModal
+          open={investigationOpen}
+          onOpenChange={setInvestigationOpen}
+          investigation={detail.investigation}
+          investigationState={operations.investigation}
+          onRetry={() =>
+            void actions.retryInvestigation(detail.investigation!.id).catch(() => undefined)
+          }
+          onConnectRepository={(repoUrl) => actions.connectRepository(repoUrl)}
+          onReplyToCustomer={() => {
+            setInvestigationOpen(false);
+            setComposerExpanded(true);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

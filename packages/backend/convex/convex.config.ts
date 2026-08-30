@@ -20,6 +20,9 @@ const app = defineApp({
     APP_URL: v.string(),
     RESEND_API_KEY: v.string(),
     RESEND_FROM_EMAIL: v.string(),
+    // Devin API key for automatic technical investigations; optional so the
+    // app degrades to a clean "not configured" state without it.
+    DEVIN_API_KEY: v.optional(v.string()),
   },
 });
 

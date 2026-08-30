@@ -1,4 +1,11 @@
-import type { LabelAccent, OperationKey, OperationState, ThreadStatus } from "./types";
+import type {
+  EmailCategory,
+  InvestigationStatus,
+  LabelAccent,
+  OperationKey,
+  OperationState,
+  ThreadStatus,
+} from "./types";
 
 /** Thread-list filter tabs. `all` is UI-only; the rest map to backend statuses. */
 export const THREAD_FILTERS = ["all", "open", "waiting", "closed"] as const;
@@ -27,6 +34,36 @@ export const LABEL_ACCENT_STYLES: Record<LabelAccent, { dot: string; bg: string;
   blue: { dot: "#0185ff", bg: "#d6ecff", text: "#0e43a0" },
 };
 
+/** Auto-triage categories: display copy plus a decorative accent. */
+export const CATEGORY_META: Record<EmailCategory, { label: string; accent: LabelAccent }> = {
+  quote_request: { label: "Quote Request", accent: "purple" },
+  booking: { label: "Booking", accent: "yellow" },
+  technical: { label: "Technical", accent: "blue" },
+  billing: { label: "Billing", accent: "amber" },
+  complaint: { label: "Complaint", accent: "magenta" },
+  general: { label: "General", accent: "blue" },
+};
+
+/**
+ * Below this confidence a technical email is flagged for review instead of
+ * auto-starting Devin. Mirrors AUTO_INVESTIGATE_THRESHOLD on the backend.
+ */
+export const TECHNICAL_REVIEW_THRESHOLD = 0.85;
+
+/** Inline copy for each investigation state shown inside the email thread. */
+export const INVESTIGATION_STATE_COPY: Record<
+  Exclude<InvestigationStatus, "failed">,
+  { title: string; detail: string }
+> = {
+  queued: { title: "Devin is investigating", detail: "Checking your software..." },
+  investigating: { title: "Devin is investigating", detail: "Checking your software..." },
+  issue_found: { title: "Issue found", detail: "Preparing a fix..." },
+  fixing: { title: "Issue found", detail: "Preparing a fix..." },
+  testing: { title: "Testing the fix...", detail: "Making sure everything works" },
+  creating_pr: { title: "Preparing pull request...", detail: "Packaging the fix for review" },
+  completed: { title: "Fix ready", detail: "Tests passed" },
+};
+
 export const IDLE_OPERATION: OperationState = { status: "idle" };
 
 export const OPERATION_KEYS: OperationKey[] = [
@@ -39,6 +76,7 @@ export const OPERATION_KEYS: OperationKey[] = [
   "send",
   "comment",
   "simulate",
+  "investigation",
 ];
 
 export const INITIAL_OPERATIONS = Object.fromEntries(
@@ -55,6 +93,7 @@ export const TOAST_IDS = {
   priority: "inbox-priority",
   labels: "inbox-labels",
   simulate: "inbox-simulate",
+  investigation: "inbox-investigation",
 } as const;
 
 /** Deterministic fixture scenarios, selectable via `?scenario=` in development. */

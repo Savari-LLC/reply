@@ -1,5 +1,11 @@
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@reply/ui/components/dropdown-menu";
 import { Spinner } from "@reply/ui/components/spinner";
-import { ListFilter, MailPlus } from "lucide-react";
+import { Bug, ChevronDown, ListFilter, MailPlus } from "lucide-react";
 
 import { FILTER_LABELS, THREAD_FILTERS, type ThreadFilter } from "../constants";
 import type { ListStatus, OperationState, Teammate, ThreadSummary } from "../types";
@@ -29,7 +35,7 @@ export type ThreadListProps = {
   onClearFilters: () => void;
   onRetry: () => Promise<void>;
   /** Demo control: delivers a synthetic email from a real company domain. */
-  onSimulateEmail?: () => void;
+  onSimulateEmail?: (kind?: "customer" | "technical") => void;
   simulateState?: OperationState;
 };
 
@@ -58,21 +64,41 @@ export function ThreadList(props: ThreadListProps) {
             {inboxName}
           </h1>
           {onSimulateEmail ? (
-            <button
-              type="button"
-              onClick={onSimulateEmail}
-              disabled={simulating}
-              title="Simulate an incoming email"
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) px-2.5 text-xs font-medium tracking-[-0.1px] text-(--inbox-text) outline-none transition-colors hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:pointer-events-none disabled:opacity-60"
-            >
-              {simulating ? (
-                <Spinner className="size-3.5" />
-              ) : (
-                <MailPlus className="size-3.5" aria-hidden />
-              )}
-              Simulate
-              <span className="sr-only"> an incoming email</span>
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={simulating}
+                title="Simulate an incoming email"
+                className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) px-2.5 text-xs font-medium tracking-[-0.1px] text-(--inbox-text) outline-none transition-colors hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:pointer-events-none disabled:opacity-60"
+              >
+                {simulating ? (
+                  <Spinner className="size-3.5" />
+                ) : (
+                  <MailPlus className="size-3.5" aria-hidden />
+                )}
+                Simulate
+                <span className="sr-only"> an incoming email</span>
+                <ChevronDown className="size-3 text-(--inbox-text-muted)" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="min-w-48 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-lg shadow-black/5"
+              >
+                <DropdownMenuItem
+                  className="rounded-md text-sm text-(--inbox-text)"
+                  onClick={() => onSimulateEmail("customer")}
+                >
+                  <MailPlus className="size-4 text-(--inbox-text-subtle)" aria-hidden />
+                  Customer email
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="rounded-md text-sm text-(--inbox-text)"
+                  onClick={() => onSimulateEmail("technical")}
+                >
+                  <Bug className="size-4 text-(--inbox-text-subtle)" aria-hidden />
+                  Technical issue report
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
           <button
             type="button"

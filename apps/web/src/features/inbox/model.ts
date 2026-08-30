@@ -26,7 +26,11 @@ export type InboxController = {
   /** Post an internal comment on the thread (never emailed to the customer). */
   addComment: (threadId: string, draft: CommentDraft) => Promise<void>;
   /** Demo: deliver a synthetic inbound email (real company domain) into an inbox. */
-  simulateEmail: (inboxId: string) => Promise<void>;
+  simulateEmail: (inboxId: string, kind?: "customer" | "technical") => Promise<void>;
+  /** Re-run a failed Devin investigation for the current thread. */
+  retryInvestigation: (investigationId: string) => Promise<void>;
+  /** Connect the repository Devin investigates for technical issues. */
+  connectRepository: (repoUrl: string) => Promise<void>;
   retryLoad: (scope: LoadScope) => Promise<void>;
 };
 

@@ -162,6 +162,38 @@ html:has(.inbox-root) body {
   line-height: 20px;
 }
 
+/* Devin investigation: only the active element breathes, nothing spins. */
+@keyframes inbox-investigation-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+}
+
+.inbox-investigation-pulse {
+  animation: inbox-investigation-pulse 1.8s ease-in-out infinite;
+}
+
+/* Trailing ellipsis shimmer for "Checking your software..." style copy. */
+@keyframes inbox-investigation-ellipsis {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.inbox-investigation-ellipsis {
+  animation: inbox-investigation-ellipsis 1.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .inbox-root *,
   .inbox-root *::before,

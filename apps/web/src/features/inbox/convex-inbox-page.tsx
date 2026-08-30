@@ -16,6 +16,7 @@ import type {
   CompanyProfile,
   InboxScreenState,
   InboxSummary,
+  Investigation,
   LabelAccent,
   ListStatus,
   Message,
@@ -130,6 +131,27 @@ function mapThread(row: ThreadRow): ThreadSummary {
     })),
     unread: row.unread,
     lastActivityAt: row.lastMessageAt,
+    classification: row.classification ?? undefined,
+  };
+}
+
+function mapInvestigation(detail: ThreadDetailRow): Investigation | undefined {
+  const row = detail.investigation;
+  if (!row) return undefined;
+  return {
+    id: row._id,
+    status: row.status,
+    summary: row.customerFriendlySummary ?? undefined,
+    impact: row.impact ?? undefined,
+    rootCause: row.rootCause ?? undefined,
+    fixSummary: row.fixSummary ?? undefined,
+    testsPassed: row.testsPassed ?? undefined,
+    pullRequestUrl: row.pullRequestUrl ?? undefined,
+    pullRequestNumber: row.pullRequestNumber ?? undefined,
+    noIssueFound: row.noIssueFound,
+    error: row.error ?? undefined,
+    startedAt: row.startedAt ?? undefined,
+    completedAt: row.completedAt ?? undefined,
   };
 }
 
@@ -215,6 +237,8 @@ export function ConvexInboxPage() {
   const addCommentMutation = useMutation(api.inbox.addComment);
   const generateCommentUploadUrl = useMutation(api.inbox.generateCommentUploadUrl);
   const simulateMutation = useMutation(api.simulate.simulateIncomingEmail);
+  const retryInvestigationMutation = useMutation(api.investigations.retry);
+  const setRepositoryMutation = useMutation(api.investigations.setRepository);
   const enrichThread = useAction(api.companyContext.enrichThread);
   const generateDraftAction = useAction(api.copilot.generateDraft);
 
@@ -327,6 +351,7 @@ export function ConvexInboxPage() {
         comments: mapComments(detailRow),
         company,
         companyStatus,
+        investigation: mapInvestigation(detailRow),
       };
     }
 
@@ -535,17 +560,45 @@ export function ConvexInboxPage() {
       setOperation("comment", "success");
     };
 
-    const simulateEmail = async (inboxId: string) =>
+    const simulateEmail = async (inboxId: string, kind?: "customer" | "technical") =>
       runMutation(
         "simulate",
-        () => simulateMutation({ inboxId: inboxId as Id<"inboxes"> }),
+        () => simulateMutation({ inboxId: inboxId as Id<"inboxes">, kind }),
         {
           toastId: TOAST_IDS.simulate,
           successToast: {
             title: "Incoming email delivered",
-            description: "Context.dev is generating the sender's company profile.",
+            description:
+              "Context.dev is enriching the sender and the email is being classified.",
           },
-          retry: () => void simulateEmail(inboxId).catch(() => undefined),
+          retry: () => void simulateEmail(inboxId, kind).catch(() => undefined),
+        },
+      );
+
+    const retryInvestigation = async (investigationId: string) =>
+      runMutation(
+        "investigation",
+        () =>
+          retryInvestigationMutation({
+            investigationId: investigationId as Id<"investigations">,
+          }),
+        {
+          toastId: TOAST_IDS.investigation,
+          successToast: { title: "Investigation restarted" },
+          retry: () => void retryInvestigation(investigationId).catch(() => undefined),
+        },
+      );
+
+    const connectRepository = async (repoUrl: string) =>
+      runMutation(
+        "investigation",
+        () => setRepositoryMutation({ repoUrl }),
+        {
+          toastId: TOAST_IDS.investigation,
+          successToast: {
+            title: "Repository connected",
+            description: "Devin will investigate technical issues automatically.",
+          },
         },
       );
 
@@ -568,6 +621,8 @@ export function ConvexInboxPage() {
       sendReply,
       addComment,
       simulateEmail,
+      retryInvestigation,
+      connectRepository,
       retryLoad,
     };
   }, [
@@ -579,6 +634,8 @@ export function ConvexInboxPage() {
     addCommentMutation,
     generateCommentUploadUrl,
     simulateMutation,
+    retryInvestigationMutation,
+    setRepositoryMutation,
     generateDraftAction,
     markRead,
     runSetup,

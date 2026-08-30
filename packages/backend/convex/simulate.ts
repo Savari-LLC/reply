@@ -91,12 +91,44 @@ const DEMO_SENDERS: DemoSender[] = [
 ];
 
 /**
+ * Bug reports from real company domains: high-confidence technical emails
+ * that exercise the automatic Devin investigation flow end to end.
+ */
+const TECHNICAL_SENDERS: DemoSender[] = [
+  {
+    senderName: "Omar Farouk",
+    senderEmail: "omar.farouk@deliveroo.com",
+    domain: "deliveroo.com",
+    subject: "Checkout fails after clicking Pay",
+    body: "Hi,\n\nSince this morning our team can't complete any purchase on your site. We fill the cart, click Pay, and the page shows \"Something went wrong\" every time. We tried two different cards and two browsers.\n\nOrders are due today, so this is quite urgent for us.\n\nThanks,\nOmar Farouk\nProcurement, Deliveroo",
+  },
+  {
+    senderName: "Elena Petrova",
+    senderEmail: "elena.petrova@booking.com",
+    domain: "booking.com",
+    subject: "Booking confirmation emails stopped arriving",
+    body: "Hello,\n\nCustomers who book through our portal integration stopped receiving confirmation emails yesterday around 4pm. The bookings appear in the dashboard, but no confirmation goes out, and guests keep calling to ask whether their reservation is real.\n\nCould you look into this as soon as possible?\n\nBest regards,\nElena Petrova\nPartner Integrations, Booking.com",
+  },
+  {
+    senderName: "Jonas Weber",
+    senderEmail: "jonas.weber@zalando.com",
+    domain: "zalando.com",
+    subject: "App crashes when opening order history",
+    body: "Hi team,\n\nSeveral of our staff report that the app crashes immediately when they open the Order History screen. It started after the latest update; the rest of the app works fine.\n\nWe rely on that screen for returns processing, so a quick fix would be appreciated.\n\nRegards,\nJonas Weber\nOperations, Zalando",
+  },
+];
+
+/**
  * Demo helper: delivers a realistic inbound email from a real company domain
- * into the chosen inbox, then schedules Context.dev enrichment so the sender's
- * company profile is ready by the time the operator opens the thread.
+ * into the chosen inbox, then schedules Context.dev enrichment and automatic
+ * LLM triage so the thread is understood without any manual action.
  */
 export const simulateIncomingEmail = mutation({
-  args: { inboxId: v.id("inboxes") },
+  args: {
+    inboxId: v.id("inboxes"),
+    // "technical" delivers a bug report that exercises the Devin flow.
+    kind: v.optional(v.union(v.literal("customer"), v.literal("technical"))),
+  },
   returns: v.object({ threadId: v.id("threads") }),
   handler: async (ctx, args) => {
     const context = await requireWorkspaceContext(ctx);
@@ -124,8 +156,9 @@ export const simulateIncomingEmail = mutation({
       )
       .collect();
     const usedDomains = new Set(workspaceThreads.map((thread) => thread.senderDomain));
-    const unused = DEMO_SENDERS.filter((sender) => !usedDomains.has(sender.domain));
-    const pool = unused.length > 0 ? unused : DEMO_SENDERS;
+    const senders = args.kind === "technical" ? TECHNICAL_SENDERS : DEMO_SENDERS;
+    const unused = senders.filter((sender) => !usedDomains.has(sender.domain));
+    const pool = unused.length > 0 ? unused : senders;
     const sender = pool[Math.floor(Math.random() * pool.length)]!;
 
     const sentAt = Date.now();
@@ -140,7 +173,7 @@ export const simulateIncomingEmail = mutation({
       senderDomain: sender.domain,
       lastMessageAt: sentAt,
     });
-    await ctx.db.insert("messages", {
+    const emailId = await ctx.db.insert("messages", {
       workspaceId: context.workspace._id,
       threadId,
       direction: "inbound",
@@ -153,6 +186,11 @@ export const simulateIncomingEmail = mutation({
     await ctx.scheduler.runAfter(0, internal.companyContext.enrichDomain, {
       workspaceId: context.workspace._id,
       domain: sender.domain,
+    });
+    // Automatic triage: classify, then auto-investigate technical issues.
+    await ctx.scheduler.runAfter(0, internal.triage.classifyEmail, {
+      threadId,
+      emailId,
     });
 
     return { threadId };

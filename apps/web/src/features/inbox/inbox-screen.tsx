@@ -56,6 +56,8 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
       generateDraft: (currentDraft) => controller.generateDraft(requireThread(), currentDraft),
       sendReply: (body, bodyHtml) => controller.sendReply(requireThread(), body, bodyHtml),
       addComment: (draft) => controller.addComment(requireThread(), draft),
+      retryInvestigation: (investigationId) => controller.retryInvestigation(investigationId),
+      connectRepository: (repoUrl) => controller.connectRepository(repoUrl),
       retry: () => controller.retryLoad("thread"),
     };
   }, [controller, state.selectedThreadId]);
@@ -96,9 +98,9 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
                 onRetry={() => controller.retryLoad("list")}
                 onSimulateEmail={
                   state.selectedInboxId
-                    ? () =>
+                    ? (kind) =>
                         void controller
-                          .simulateEmail(state.selectedInboxId!)
+                          .simulateEmail(state.selectedInboxId!, kind)
                           .catch(() => undefined)
                     : undefined
                 }

@@ -30,6 +30,7 @@ import type {
   ThreadSummary,
   ThreadViewer,
 } from "../types";
+import { ClassificationBadge } from "./classification-badge";
 import { ConversationAvatar } from "./conversation-avatar";
 import { ConversationViewers } from "./conversation-viewers";
 import type { WorkspaceActions } from "./conversation-workspace";
@@ -226,6 +227,9 @@ export function ConversationHeader({
           <span className="shrink-0 rounded-full border border-(--inbox-border) bg-(--inbox-surface) px-2 py-0.5 text-xs font-medium text-(--inbox-text)">
             {STATUS_LABELS[thread.status]}
           </span>
+          {thread.classification ? (
+            <ClassificationBadge classification={thread.classification} />
+          ) : null}
           {thread.labels.map((label) => {
             const accent = LABEL_ACCENT_STYLES[label.accent];
             return (

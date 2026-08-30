@@ -1,6 +1,7 @@
 import { LABEL_ACCENT_STYLES } from "../constants";
 import type { Teammate, ThreadSummary } from "../types";
 import { formatRelativeTime, getAvatarTint, getInitials } from "../utils";
+import { ClassificationBadge } from "./classification-badge";
 
 type ThreadRowProps = {
   thread: ThreadSummary;
@@ -73,6 +74,9 @@ export function ThreadRow({ thread, assignee, selected, onSelect }: ThreadRowPro
             </span>
           ) : null}
           <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+            {thread.classification ? (
+              <ClassificationBadge classification={thread.classification} size="sm" />
+            ) : null}
             {thread.labels.map((label) => {
               const accent = LABEL_ACCENT_STYLES[label.accent];
               return (

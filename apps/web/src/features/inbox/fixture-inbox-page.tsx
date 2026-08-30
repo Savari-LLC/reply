@@ -389,6 +389,19 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       });
     };
 
+    const retryInvestigation = async () => {
+      toast.info("Investigations need the live workspace.", {
+        id: TOAST_IDS.investigation,
+        description: "Sign in to let Devin investigate technical issues.",
+      });
+    };
+
+    const connectRepository = async () => {
+      toast.info("Connecting a repository needs the live workspace.", {
+        id: TOAST_IDS.investigation,
+      });
+    };
+
     const retryLoad = async (scope: LoadScope) => {
       if (scope === "screen") return loadScreen();
       if (scope === "list") {
@@ -411,6 +424,8 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       sendReply,
       addComment,
       simulateEmail,
+      retryInvestigation,
+      connectRepository,
       retryLoad,
     };
   }, [loadList, loadScreen, loadThread, runMutation, scenario, setOperation, state, updateThread]);

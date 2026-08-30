@@ -36,6 +36,7 @@ type Env = {
   readonly AUTH_JWKS: string;
   readonly AUTH_PRIVATE_KEY: string;
   readonly CONTEXT_DEV_API_KEY: string;
+  readonly DEVIN_API_KEY: string | undefined;
   readonly RESEND_API_KEY: string;
   readonly RESEND_FROM_EMAIL: string;
 };
