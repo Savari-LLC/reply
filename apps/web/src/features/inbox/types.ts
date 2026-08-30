@@ -74,6 +74,8 @@ export type Message = {
   authorEmail?: string;
   recipientEmail?: string;
   body: string;
+  /** Optional rich-text rendering of `body` produced by the composer. */
+  bodyHtml?: string;
   sentAt: number;
 };
 
