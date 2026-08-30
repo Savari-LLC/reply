@@ -22,6 +22,14 @@ type InboxScreenProps = {
 export function InboxScreen({ controller }: InboxScreenProps) {
   const { state } = controller;
   const [filter, setFilter] = useState<ThreadFilter>("all");
+  // Incremented on deliberate keyboard selection so the workspace moves focus
+  // to the conversation heading once the thread is ready (F5).
+  const [headingFocusToken, setHeadingFocusToken] = useState(0);
+
+  const handleSelectThread = (threadId: string, viaKeyboard: boolean) => {
+    controller.selectThread(threadId);
+    if (viaKeyboard) setHeadingFocusToken((token) => token + 1);
+  };
 
   const selectedInbox = state.inboxes.find((inbox) => inbox.id === state.selectedInboxId) ?? null;
   const visibleThreads = useMemo(() => filterThreads(state.threads, filter), [state.threads, filter]);
@@ -72,7 +80,7 @@ export function InboxScreen({ controller }: InboxScreenProps) {
                 error={state.listError}
                 filter={filter}
                 onFilterChange={setFilter}
-                onSelectThread={controller.selectThread}
+                onSelectThread={handleSelectThread}
                 onClearFilters={() => setFilter("all")}
                 onRetry={() => controller.retryLoad("list")}
               />
@@ -83,6 +91,7 @@ export function InboxScreen({ controller }: InboxScreenProps) {
                 teammates={state.teammates}
                 operations={state.operations}
                 actions={workspaceActions}
+                headingFocusToken={headingFocusToken}
               />
             </>
           )}

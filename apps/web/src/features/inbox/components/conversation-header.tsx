@@ -36,6 +36,8 @@ const STATUS_OPTIONS: ThreadStatus[] = ["open", "waiting", "closed"];
 
 export type ConversationHeaderProps = {
   thread: ThreadSummary;
+  /** Focus target after keyboard-driven thread selection. */
+  headingRef?: RefObject<HTMLHeadingElement | null>;
   teammates: Teammate[];
   operations: Record<OperationKey, OperationState>;
   actions: Pick<
@@ -51,6 +53,7 @@ export type ConversationHeaderProps = {
 /** h-16 conversation header: customer identity on the left, mutation controls on the right. */
 export function ConversationHeader({
   thread,
+  headingRef,
   teammates,
   operations,
   actions,
@@ -77,7 +80,11 @@ export function ConversationHeader({
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-(--inbox-border-subtle) px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <ConversationAvatar name={thread.customerName} online />
-        <h2 className="min-w-0 truncate text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="min-w-0 truncate rounded-sm text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong) outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+        >
           {thread.subject}
         </h2>
         {isUrgent ? (
