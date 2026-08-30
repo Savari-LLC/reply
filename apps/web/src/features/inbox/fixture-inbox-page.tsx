@@ -18,6 +18,7 @@ import type {
   OperationKey,
   ThreadDetail,
   ThreadSummary,
+  ThreadViewer,
 } from "./types";
 
 const LOAD_DELAY_MS = 450;
@@ -369,5 +370,17 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
     };
   }, [loadList, loadScreen, loadThread, runMutation, scenario, setOperation, state, updateThread]);
 
-  return <InboxScreen controller={controller} />;
+  // Deterministic presence for the fixture demo: the first two teammates are
+  // always "viewing" whichever thread is open.
+  const viewers = useMemo<ThreadViewer[]>(() => {
+    if (state.threadStatus !== "ready" || !state.selectedThread) return [];
+    return FIXTURE_TEAMMATES.slice(0, 2).map((teammate, index) => ({
+      id: teammate.id,
+      name: teammate.name,
+      initials: teammate.initials,
+      isSelf: index === 0,
+    }));
+  }, [state.threadStatus, state.selectedThread]);
+
+  return <InboxScreen controller={controller} viewers={viewers} />;
 }

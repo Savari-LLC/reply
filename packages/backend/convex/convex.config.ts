@@ -4,6 +4,7 @@ import auth from "@convex-dev/auth/core/convex.config.js";
 import oauth from "@convex-dev/auth/providers/oauth/convex.config.js";
 import password from "@convex-dev/auth/providers/password/convex.config.js";
 import username from "@convex-dev/auth/username/convex.config.js";
+import presence from "@convex-dev/presence/convex.config.js";
 import rateLimiter from "@convex-dev/rate-limiter/convex.config.js";
 import resend from "@convex-dev/resend/convex.config.js";
 import { defineApp } from "convex/server";
@@ -40,6 +41,7 @@ app.use(oauth, {
   },
 });
 app.use(agent);
+app.use(presence);
 app.use(rateLimiter);
 app.use(resend);
 app.use(contextDev, {

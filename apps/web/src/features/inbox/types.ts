@@ -99,6 +99,15 @@ export type ThreadDetail = {
   company?: CompanyProfile;
 };
 
+/** A teammate currently viewing the selected thread (live presence). */
+export type ThreadViewer = {
+  id: string;
+  name: string;
+  initials: string;
+  imageUrl?: string;
+  isSelf: boolean;
+};
+
 export type ScreenStatus = "loading" | "ready" | "error";
 export type ListStatus = "idle" | "loading" | "ready" | "empty" | "error";
 export type ThreadPaneStatus = "idle" | "loading" | "ready" | "error";

@@ -117,29 +117,11 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
       <div className="min-h-0 flex-1" />
       <div className="px-2 pb-3 pt-2">
         {onSignOut ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={`Account menu — ${accountLabel}`}
-              className="relative block size-8 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
-            >
-              <RailAvatar user={user} />
-              <span
-                className="absolute right-0 bottom-0 size-2 rounded-full bg-(--inbox-success) ring-2 ring-white"
-                aria-hidden
-              />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="right"
-              align="end"
-              className="min-w-44 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-lg shadow-black/5"
-            >
-              <DropdownMenuLabel className="truncate text-xs font-medium text-(--inbox-text-muted)">
-                {accountLabel}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="rounded-md text-sm text-(--inbox-text)"
-                onClick={onSignOut}
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={`Account menu — ${accountLabel}`}
+                className="relative block size-8 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
               >
                 <RailAvatar user={user} />
                 <span
@@ -150,7 +132,7 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
               <DropdownMenuContent
                 side="right"
                 align="end"
-                className="min-w-48 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-(--inbox-shadow-sm)"
+                className="min-w-48 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-lg shadow-black/5"
               >
                 {/* GroupLabel needs a Group ancestor; Base UI throws without one. */}
                 <DropdownMenuGroup>
@@ -177,16 +159,16 @@ export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: Sideba
             </DropdownMenu>
             <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
           </>
-      ) : (
-      <span className="relative block size-8" aria-label={`${accountLabel}, online`}>
-        <RailAvatar user={user} />
-        <span
-          className="absolute right-0 bottom-0 size-2 rounded-full bg-(--inbox-success) ring-2 ring-white"
-          aria-hidden
-        />
-      </span>
+        ) : (
+          <span className="relative block size-8" aria-label={`${accountLabel}, online`}>
+            <RailAvatar user={user} />
+            <span
+              className="absolute right-0 bottom-0 size-2 rounded-full bg-(--inbox-success) ring-2 ring-white"
+              aria-hidden
+            />
+          </span>
         )}
+      </div>
     </div>
-    </div >
   );
 }

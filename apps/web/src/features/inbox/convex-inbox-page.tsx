@@ -1,4 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import usePresence from "@convex-dev/presence/react";
 import { api } from "@reply/backend/convex/_generated/api";
 import type { Id } from "@reply/backend/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -23,8 +24,38 @@ import type {
   ThreadDetail,
   ThreadPaneStatus,
   ThreadSummary,
+  ThreadViewer,
 } from "./types";
 import { getInitials } from "./utils";
+
+type PresenceEntry = {
+  userId: string;
+  online: boolean;
+  lastDisconnected: number;
+  name?: string;
+  image?: string;
+};
+
+/**
+ * Headless presence subscriber. Mounted only while a thread is selected and
+ * the user is known; heartbeats the thread room and reports who is online.
+ * Identity is re-derived server-side — the userId here only marks "self".
+ */
+function PresenceReporter({
+  threadId,
+  userId,
+  onChange,
+}: {
+  threadId: string;
+  userId: string;
+  onChange: (entries: PresenceEntry[]) => void;
+}) {
+  const state = usePresence(api.presence, threadId, userId);
+  useEffect(() => {
+    onChange((state as PresenceEntry[] | undefined) ?? []);
+  }, [state, onChange]);
+  return null;
+}
 
 type InboxRow = NonNullable<FunctionReturnType<typeof api.inbox.listInboxes>>[number];
 type ThreadRow = NonNullable<FunctionReturnType<typeof api.inbox.listThreads>>[number];
@@ -132,6 +163,8 @@ function mapStoredCompany(detail: ThreadDetailRow): CompanyProfile | undefined {
 export function ConvexInboxPage() {
   const { signOut } = useAuthActions();
   const profile = useQuery(api.users.getProfile, {});
+  const me = useQuery(api.users.getCurrent, {});
+  const [presence, setPresence] = useState<PresenceEntry[]>([]);
   const inboxes = useQuery(api.inbox.listInboxes, {});
   const teammateRows = useQuery(api.inbox.listTeammates, {});
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
@@ -449,11 +482,38 @@ export function ConvexInboxPage() {
     ? { name: profile.name, imageUrl: profile.imageUrl ?? undefined }
     : undefined;
 
+  // Presence resets when the selected thread changes (keyed reporter), so
+  // stale viewers from the previous thread never flash in the header.
+  const viewers = useMemo<ThreadViewer[]>(
+    () =>
+      presence
+        .filter((entry) => entry.online)
+        .map((entry) => ({
+          id: entry.userId,
+          name: entry.name ?? "Teammate",
+          initials: getInitials(entry.name ?? "Teammate"),
+          imageUrl: entry.image,
+          isSelf: me !== null && me !== undefined && entry.userId === me._id,
+        })),
+    [presence, me],
+  );
+
   return (
-    <InboxScreen
-      controller={controller}
-      currentUser={railUser}
-      onSignOut={() => void signOut()}
-    />
+    <>
+      {selectedThreadId && me ? (
+        <PresenceReporter
+          key={selectedThreadId}
+          threadId={selectedThreadId}
+          userId={me._id}
+          onChange={setPresence}
+        />
+      ) : null}
+      <InboxScreen
+        controller={controller}
+        currentUser={railUser}
+        onSignOut={() => void signOut()}
+        viewers={viewers}
+      />
+    </>
   );
 }
