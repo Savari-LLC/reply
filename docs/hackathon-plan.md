@@ -2,6 +2,64 @@
 
 > Planning document only. The starter repository deliberately has an empty product schema and no Reply feature implementation.
 
+## Hackathon rules and agent operating constraints
+
+This build is for the Collabute X TheBlock hackathon at TheBlock, Dubai, on 30 August 2026. Development runs from 10:30 AM to 5:00 PM GST. The 5:00 PM submission cutoff is strict.
+
+Every agent working in this repository must protect these constraints:
+
+- Ship one stable core journey before adding breadth. A local prototype is acceptable; deployment is optional.
+- Use test or synthetic data only. Do not add anything that enables fraud or harm.
+- Build the product during the event. Prepared libraries, design systems, and generic starter code are allowed, but a pre-built product is not.
+- Disclose major pre-existing components in the submission.
+- Flag integration failures as soon as they appear. Preserve a working demo path while attempting stretch work.
+- Do not make a partner integration decorative. Installing an SDK or mentioning a tool in the pitch does not count.
+
+### Required partner integrations
+
+The eligible product must make meaningful use of all three partners:
+
+| Partner | Required contribution | Evidence to preserve |
+| --- | --- | --- |
+| Devin by Cognition | Devin must build substantial parts of the product. Assign it bounded implementation work that lands in the repository. | Keep a short record of the features, files, or commits Devin produced so the team can explain its work. |
+| Convex | Convex must power the realtime backend through real tables, queries, mutations, and live UI updates. | Demo a state change such as assignment, reply, or status that persists and updates the interface. |
+| Context.dev | Context.dev must provide web context used by the product, such as sender-domain company intelligence. | Demo a real Context.dev result in the company card and use the normalized result when generating a reply draft. |
+
+Other models, APIs, and libraries may support the product, but they cannot replace these three integrations.
+
+Partner setup references:
+
+- Devin: [product](https://devin.ai), [documentation](https://docs.devin.ai), and [hackathon credits](https://www.devinvendingmachine.com/)
+- Convex: [product](https://convex.dev), [documentation](https://docs.convex.dev), and [sponsored hackathon guide](https://convex-dev.notion.site/Convex-Sponsored-Hackathons-Guide-286b57ff32ab80daaa12dc4f8853f621)
+- Context.dev: [product](https://context.dev), [documentation](https://docs.context.dev), and [credit redemption](https://www.context.dev/dashboard/redeem-credits) using code `COLLABUTE-CONTEXT-DEV`
+
+### Judging priorities
+
+Use the scoring weights to settle scope decisions:
+
+| Criterion | Weight | Planning consequence |
+| --- | ---: | --- |
+| Product Value | 25% | Make the shared-inbox problem and target user obvious in the first 30 seconds. |
+| Technical Execution | 25% | Prefer a reliable end-to-end flow, clean failure states, and persisted data over extra screens. |
+| Partner Technology Integration | 25% | Make each partner's contribution visible in the product and easy to explain. |
+| Innovation | 15% | Emphasize the combination of shared ownership, live company context, and assisted drafting. |
+| Demonstration and Clarity | 10% | Rehearse one three-minute story and keep a backup recording. |
+
+### Submission requirements
+
+Submit through [the hackathon submission site](https://collabute-hackathon.vercel.app) before 5:00 PM GST. Prepare these fields before final QA:
+
+- Project name
+- One-line description
+- Problem being solved
+- Target users
+- One paragraph each describing how Devin, Convex, and Context.dev were used
+- Repository link
+- Optional demo and video links
+- Disclosure of pre-existing assets
+
+The three-minute presentation should cover the problem, the product, the working core journey, how all three partner tools contributed, and the potential impact.
+
 ## Product thesis
 
 Small service businesses do not need another email client. They need a shared work queue that happens to contain email.
@@ -57,14 +115,15 @@ This is a two-minute loop with a visible before-and-after. Keep the browser on t
 
 | Time | Outcome | Exit check |
 | --- | --- | --- |
-| 09:00–10:00 | Environment and Convex deployment | App opens, Auth keys exist, Context key is set |
-| 10:00–11:30 | Core inbox loop | Seeded threads load and status/assignment mutations persist |
-| 11:30–12:30 | Context.dev | Northstar company card enriches and survives refresh |
-| 12:30–13:30 | AI drafting | Draft uses thread and company context; failures are user-readable |
-| 13:30–15:00 | UI polish | Desktop and mobile paths are legible, fast, and presentation-ready |
-| 15:00–16:00 | Collaboration details | Reply, waiting, closed, assignee, and labels feel coherent |
-| 16:00–17:00 | QA and pitch | Fresh setup passes, demo rehearsed twice, backup recording ready |
-| 17:00 onward | Buffer | Only fix demo blockers; do not expand scope |
+| 10:30 to 11:00 | Environment and partner setup | App opens; Convex, Context.dev, and Devin access are confirmed |
+| 11:00 to 12:15 | Core inbox loop | Seeded threads load and status or assignment mutations persist |
+| 12:15 to 1:00 | Context.dev | Northstar company card enriches and survives refresh |
+| 1:00 to 2:00 | AI drafting | Draft uses thread and company context; failures are user-readable |
+| 2:00 to 3:15 | UI polish | Desktop and mobile paths are legible, fast, and presentation-ready |
+| 3:15 to 4:00 | Integration freeze | The complete demo path works; only demo blockers may change core code |
+| 4:00 to 4:35 | QA and pitch | Fresh setup passes, demo is rehearsed twice, and a backup recording exists |
+| 4:35 to 4:50 | Submission | All required fields and links are entered and checked |
+| 4:50 to 5:00 | Final safety margin | Submit before the cutoff; do not start new work |
 
 ## Planned architecture
 
