@@ -25,7 +25,7 @@ export type WorkspaceActions = {
   setUnread: (unread: boolean) => Promise<void>;
   setPriority: (priority: ThreadPriority) => Promise<void>;
   setLabels: (labelIds: string[]) => Promise<void>;
-  generateDraft: () => Promise<string>;
+  generateDraft: (currentDraft?: string) => Promise<string>;
   sendReply: (body: string, bodyHtml?: string) => Promise<void>;
   retry: () => Promise<void>;
 };
