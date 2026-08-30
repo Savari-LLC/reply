@@ -1,28 +1,22 @@
 import { api } from "@reply/backend/convex/_generated/api";
 import { Badge } from "@reply/ui/components/badge";
 import { Button, buttonVariants } from "@reply/ui/components/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@reply/ui/components/select";
 import { Skeleton } from "@reply/ui/components/skeleton";
+import { Spinner } from "@reply/ui/components/spinner";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Inbox, Mail, TriangleAlert, UserRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AuthPanel } from "../../components/auth-panel";
 import { statusStyles, timeAgo } from "../../lib/test-page";
 
-type SearchParams = { inbox?: string; actor?: string };
+type SearchParams = { inbox?: string };
 
 export const Route = createFileRoute("/test/")({
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     inbox: typeof search.inbox === "string" ? search.inbox : undefined,
-    actor: typeof search.actor === "string" ? search.actor : undefined,
   }),
   component: TestInboxPage,
   errorComponent: TestPageError,
@@ -42,11 +36,35 @@ function TestPageError({ error }: { error: Error }) {
 }
 
 function TestInboxPage() {
-  const { inbox, actor } = Route.useSearch();
+  const { isLoading, isAuthenticated } = useConvexAuth();
+
+  if (isLoading) {
+    return (
+      <main
+        className="flex min-h-svh items-center justify-center"
+        aria-live="polite"
+      >
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Spinner />
+          Restoring your session…
+        </div>
+      </main>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthPanel />;
+  }
+
+  return <TestInbox />;
+}
+
+function TestInbox() {
+  const { inbox } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const inboxes = useQuery(api.demo.listInboxes, { actor });
-  const threads = useQuery(api.demo.listThreads, { inboxId: inbox, actor });
-  const teammates = useQuery(api.demo.listTeammates);
+  const currentUser = useQuery(api.users.getCurrent);
+  const inboxes = useQuery(api.demo.listInboxes, {});
+  const threads = useQuery(api.demo.listThreads, { inboxId: inbox });
   const ensureSeeded = useMutation(api.demo.ensureSeeded);
   const [seeding, setSeeding] = useState(false);
 
@@ -67,7 +85,7 @@ function TestInboxPage() {
         <div>
           <h1 className="text-lg font-semibold">No demo data yet</h1>
           <p className="text-sm text-muted-foreground">
-            Seed the demo workspace to start testing.
+            Seed the demo workspace and join it to start testing.
           </p>
         </div>
         <Button
@@ -76,7 +94,7 @@ function TestInboxPage() {
             setSeeding(true);
             try {
               await ensureSeeded({});
-              toast.success("Demo data seeded");
+              toast.success("Demo workspace ready");
             } catch (error) {
               toast.error(
                 error instanceof Error ? error.message : "Seeding failed",
@@ -101,30 +119,18 @@ function TestInboxPage() {
             internal
           </span>
         </h1>
-        <div className="mb-4 flex items-center gap-2">
-          <UserRound className="size-4 text-muted-foreground" />
-          <Select
-            value={actor ?? "maya"}
-            onValueChange={(value) =>
-              navigate({ search: { inbox, actor: value ?? undefined } })
-            }
-          >
-            <SelectTrigger className="h-8 flex-1" aria-label="Testing as">
-              <SelectValue placeholder="Testing as" />
-            </SelectTrigger>
-            <SelectContent>
-              {(teammates ?? []).map((teammate) => (
-                <SelectItem key={teammate._id} value={teammate.username}>
-                  Testing as {teammate.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <UserRound className="size-4" />
+          <span className="truncate">
+            {currentUser
+              ? `Signed in as ${currentUser.name ?? currentUser.username}`
+              : "Signed in"}
+          </span>
         </div>
         <nav className="flex flex-row gap-1 overflow-x-auto lg:flex-col">
           <button
             type="button"
-            onClick={() => navigate({ search: { actor } })}
+            onClick={() => navigate({ search: {} })}
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap transition-colors hover:bg-accent ${!inbox ? "bg-accent font-semibold" : ""}`}
           >
             <Inbox className="size-4" />
@@ -134,7 +140,7 @@ function TestInboxPage() {
             <button
               key={item._id}
               type="button"
-              onClick={() => navigate({ search: { inbox: item._id, actor } })}
+              onClick={() => navigate({ search: { inbox: item._id } })}
               className={`flex flex-col gap-0.5 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap transition-colors hover:bg-accent ${inbox === item._id ? "bg-accent font-semibold" : ""}`}
             >
               <span className="flex items-center gap-2">
@@ -169,7 +175,7 @@ function TestInboxPage() {
             <button
               type="button"
               className="underline"
-              onClick={() => navigate({ search: { actor } })}
+              onClick={() => navigate({ search: {} })}
             >
               Show all conversations
             </button>
@@ -183,7 +189,6 @@ function TestInboxPage() {
                 <Link
                   to="/test/$threadId"
                   params={{ threadId: thread._id }}
-                  search={{ actor }}
                   className="block px-4 py-3 transition-colors hover:bg-accent/50"
                 >
                   <div className="flex items-center gap-2">
