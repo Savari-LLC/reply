@@ -4,6 +4,8 @@ import auth from "@convex-dev/auth/core/convex.config.js";
 import oauth from "@convex-dev/auth/providers/oauth/convex.config.js";
 import password from "@convex-dev/auth/providers/password/convex.config.js";
 import username from "@convex-dev/auth/username/convex.config.js";
+import rateLimiter from "@convex-dev/rate-limiter/convex.config.js";
+import resend from "@convex-dev/resend/convex.config.js";
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
 
@@ -15,6 +17,9 @@ const app = defineApp({
     AUTH_GOOGLE_CLIENT_SECRET: v.string(),
     CONTEXT_DEV_API_KEY: v.string(),
     ALLOW_DEMO_TEST_PAGE: v.optional(v.string()),
+    APP_URL: v.string(),
+    RESEND_API_KEY: v.string(),
+    RESEND_FROM_EMAIL: v.string(),
   },
 });
 
@@ -36,6 +41,8 @@ app.use(oauth, {
   },
 });
 app.use(agent);
+app.use(rateLimiter);
+app.use(resend);
 app.use(contextDev, {
   env: {
     CONTEXT_DEV_API_KEY: app.env.CONTEXT_DEV_API_KEY,

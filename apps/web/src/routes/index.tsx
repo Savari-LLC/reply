@@ -7,9 +7,11 @@ import { Separator } from "@reply/ui/components/separator";
 import { Spinner } from "@reply/ui/components/spinner";
 import { createFileRoute } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import { AuthPanel } from "../components/auth-panel";
+import { AcceptInvitationPage, CreateWorkspacePage, InviteMembersPage } from "../components/workspace-onboarding";
 import {
   Bot,
   Boxes,
@@ -23,7 +25,12 @@ import {
   Sparkles,
 } from "lucide-react";
 
+type HomeSearchParams = { invite?: string };
+
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): HomeSearchParams => ({
+    invite: typeof search.invite === "string" ? search.invite : undefined,
+  }),
   component: HomeRoute,
 });
 
@@ -47,22 +54,53 @@ const tomorrow = [
 
 function HomeRoute() {
   const { isLoading, isAuthenticated } = useConvexAuth();
+  const { invite } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const currentWorkspace = useQuery(api.workspaces.getCurrent, isAuthenticated ? {} : "skip");
+  const clearInvitation = useCallback(() => {
+    void navigate({ search: {}, replace: true });
+  }, [navigate]);
+  const acceptInvitation = useCallback(
+    (workspaceName: string) => {
+      toast.success(`Joined ${workspaceName}`);
+      clearInvitation();
+    },
+    [clearInvitation],
+  );
 
   if (isLoading) {
-    return (
-      <main className="flex min-h-svh items-center justify-center bg-[#eef0ec]" aria-live="polite">
-        <div className="flex items-center gap-3 rounded-2xl border border-white/80 bg-[#fbfbf8] px-5 py-4 text-sm font-medium text-[#202d2a] shadow-lg shadow-[#202d2a]/5">
-          <Spinner />
-          Restoring your session…
-        </div>
-      </main>
-    );
+    return <RouteLoading label="Restoring your session…" />;
   }
-
-  return isAuthenticated ? <StarterHome /> : <AuthPanel />;
+  if (!isAuthenticated) {
+    return <AuthPanel invited={invite !== undefined} />;
+  }
+  if (invite !== undefined) {
+    return <AcceptInvitationPage token={invite} onAccepted={acceptInvitation} onDismiss={clearInvitation} />;
+  }
+  if (currentWorkspace === undefined) {
+    return <RouteLoading label="Loading your workspace…" />;
+  }
+  if (currentWorkspace === null) {
+    return <CreateWorkspacePage />;
+  }
+  if (currentWorkspace.membership.role === "admin" && currentWorkspace.workspace.onboardingCompletedAt === undefined) {
+    return <InviteMembersPage workspaceName={currentWorkspace.workspace.name} memberCount={currentWorkspace.memberCount} />;
+  }
+  return <StarterHome workspaceName={currentWorkspace.workspace.name} />;
 }
 
-function StarterHome() {
+function RouteLoading({ label }: { label: string }) {
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-[#eef0ec]" aria-live="polite">
+      <div className="flex items-center gap-3 rounded-2xl border border-white/80 bg-[#fbfbf8] px-5 py-4 text-sm font-medium text-[#202d2a] shadow-lg shadow-[#202d2a]/5">
+        <Spinner />
+        {label}
+      </div>
+    </main>
+  );
+}
+
+function StarterHome({ workspaceName }: { workspaceName: string }) {
   const health = useQuery(api.healthCheck.get);
   const user = useQuery(api.users.getCurrent);
   const { signOut } = useAuthActions();
@@ -80,7 +118,7 @@ function StarterHome() {
             </div>
             <div>
               <p className="text-[17px] font-bold tracking-[-0.04em]">reply</p>
-              <p className="text-[10px] text-muted-foreground">Hackathon starter</p>
+              <p className="max-w-32 truncate text-[10px] text-muted-foreground">{workspaceName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -125,7 +163,7 @@ function StarterHome() {
             <div className="mt-8 flex flex-wrap gap-3 text-xs">
               <ReadyItem>Bun workspace installed</ReadyItem>
               <ReadyItem>Plan documented</ReadyItem>
-              <ReadyItem>Empty schema</ReadyItem>
+              <ReadyItem>Workspace access ready</ReadyItem>
             </div>
           </div>
 

@@ -27,7 +27,7 @@ const oauthErrorMessages: Record<OauthFlowErrorCode, string> = {
 
 type PasswordMode = "sign-in" | "sign-up";
 
-export function AuthPanel() {
+export function AuthPanel({ invited = false }: { invited?: boolean }) {
   const [mode, setMode] = useState<PasswordMode>("sign-in");
   const [googlePending, setGooglePending] = useState(false);
   const { signInGoogle } = useSignInWithGoogle(api.auth);
@@ -66,9 +66,9 @@ export function AuthPanel() {
           </div>
 
           <div>
-            <p className="text-[10px] font-bold tracking-[0.14em] text-[#bc5644] uppercase">Welcome</p>
-            <h2 className="mt-2 text-3xl font-bold tracking-[-0.045em] text-[#202d2a]">Sign in to continue</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Use Google or your Reply username and password.</p>
+            <p className="text-[10px] font-bold tracking-[0.14em] text-[#bc5644] uppercase">{invited ? "You’re invited" : "Welcome"}</p>
+            <h2 className="mt-2 text-3xl font-bold tracking-[-0.045em] text-[#202d2a]">{invited ? "Sign in to join your team" : "Sign in to continue"}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{invited ? "Use Google or create a Reply account, then we’ll add you to the workspace." : "Use Google or your Reply username and password."}</p>
           </div>
 
           <div className="mt-7 space-y-5">
@@ -81,7 +81,7 @@ export function AuthPanel() {
               onClick={async () => {
                 setGooglePending(true);
                 try {
-                  await signInGoogle();
+                  await signInGoogle({ redirectTo: window.location.href });
                 } catch {
                   setGooglePending(false);
                 }
