@@ -8,17 +8,18 @@ export default defineSchema({
     v.union(
       v.object({
         authProvider: v.literal("password"),
-        providerAccountId: v.string(),
+        providerAccountId: v.optional(v.string()),
         username: v.string(),
-        name: v.string(),
+        name: v.optional(v.string()),
       }),
       v.object({
         authProvider: v.literal("google"),
-        providerAccountId: v.string(),
-        username: v.string(),
-        name: v.string(),
+        providerAccountId: v.optional(v.string()),
+        username: v.optional(v.string()),
+        name: v.optional(v.string()),
         email: v.optional(v.string()),
         image: v.optional(v.string()),
+        picture: v.optional(v.string()),
       }),
     ),
   )
