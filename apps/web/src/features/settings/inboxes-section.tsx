@@ -40,6 +40,8 @@ import {
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { MailChannelControls } from "@/features/inbox/components/mail-settings-dialog";
+
 import { ProviderBadge, providerMeta } from "./channel-providers";
 import { ConnectChannelDialog } from "./connect-channel-dialog";
 import { errorMessage } from "./constants";
@@ -229,6 +231,7 @@ function InboxCard({
             <ChannelRow
               key={channel._id}
               channel={channel}
+              inboxId={inbox._id}
               inboxName={inbox.name}
               canManage={inbox.canManage}
             />
@@ -251,10 +254,12 @@ function InboxCard({
 
 function ChannelRow({
   channel,
+  inboxId,
   inboxName,
   canManage,
 }: {
   channel: SettingsChannel;
+  inboxId: Id<"inboxes">;
   inboxName: string;
   canManage: boolean;
 }) {
@@ -298,34 +303,47 @@ function ChannelRow({
         <p className="mt-0.5 truncate text-xs text-(--inbox-text-muted)">
           {meta.label} · {channel.threadCount} conversation
           {channel.threadCount === 1 ? "" : "s"}
+          {channel.mailConnection?.syncStatus === "syncing"
+            ? " · Syncing…"
+            : channel.mailConnection?.lastSyncError
+              ? " · Sync needs attention"
+              : ""}
         </p>
       </div>
       {canManage ? (
-        <AlertDialog>
-          <AlertDialogTrigger
-            aria-label={`Disconnect ${channel.address} from ${inboxName}`}
-            disabled={pending}
-            className="flex size-7 shrink-0 items-center justify-center rounded-lg text-(--inbox-text-muted) outline-none hover:bg-(--inbox-hover) hover:text-destructive focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:opacity-50"
-          >
-            {pending ? <Spinner className="size-3.5" /> : <Unplug className="size-3.5" aria-hidden />}
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Disconnect {channel.address}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {channel.threadCount === 0
-                  ? `${meta.label} stops delivering into ${inboxName}.`
-                  : `${meta.label} stops delivering into ${inboxName}, and its ${channel.threadCount} conversation${
-                      channel.threadCount === 1 ? "" : "s"
-                    } are permanently deleted.`}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void remove()}>Disconnect</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        channel.provider === "gmail" || channel.provider === "outlook" ? (
+          <MailChannelControls channel={channel} inboxId={inboxId} inboxName={inboxName} />
+        ) : (
+          <AlertDialog>
+            <AlertDialogTrigger
+              aria-label={`Disconnect ${channel.address} from ${inboxName}`}
+              disabled={pending}
+              className="flex size-7 shrink-0 items-center justify-center rounded-lg text-(--inbox-text-muted) outline-none hover:bg-(--inbox-hover) hover:text-destructive focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:opacity-50"
+            >
+              {pending ? (
+                <Spinner className="size-3.5" />
+              ) : (
+                <Unplug className="size-3.5" aria-hidden />
+              )}
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Disconnect {channel.address}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {channel.threadCount === 0
+                    ? `${meta.label} stops delivering into ${inboxName}.`
+                    : `${meta.label} stops delivering into ${inboxName}, and its ${channel.threadCount} conversation${
+                        channel.threadCount === 1 ? "" : "s"
+                      } are permanently deleted.`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void remove()}>Disconnect</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )
       ) : null}
     </li>
   );
