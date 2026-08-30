@@ -55,7 +55,7 @@ export function ConnectChannelDialog({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!provider) return;
+    if (!provider || providerMeta(provider).availability !== "available") return;
     setPending(true);
     try {
       if (provider === "gmail" || provider === "outlook") {
@@ -106,8 +106,9 @@ export function ConnectChannelDialog({
               <li key={entry.value}>
                 <button
                   type="button"
+                  disabled={entry.availability !== "available"}
                   onClick={() => setProvider(entry.value)}
-                  className="group flex w-full items-center gap-3 rounded-xl border border-(--inbox-border-subtle) bg-(--inbox-surface) p-3 text-left outline-none transition-colors hover:border-(--inbox-border-strong) hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+                  className="group flex w-full items-center gap-3 rounded-xl border border-(--inbox-border-subtle) bg-(--inbox-surface) p-3 text-left outline-none transition-colors hover:border-(--inbox-border-strong) hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:cursor-not-allowed disabled:bg-(--inbox-hover) disabled:opacity-65 disabled:hover:border-(--inbox-border-subtle)"
                 >
                   <span
                     className="flex size-10 shrink-0 items-center justify-center rounded-xl"
@@ -116,17 +117,26 @@ export function ConnectChannelDialog({
                     <entry.Icon className="size-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium tracking-[-0.1px] text-(--inbox-text-strong)">
-                      {entry.label}
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium tracking-[-0.1px] text-(--inbox-text-strong)">
+                        {entry.label}
+                      </span>
+                      {entry.availability === "coming-soon" ? (
+                        <span className="shrink-0 rounded-full bg-(--inbox-border-subtle) px-2 py-0.5 text-[10px] font-semibold tracking-[0.04em] text-(--inbox-text-muted) uppercase">
+                          Coming soon
+                        </span>
+                      ) : null}
                     </span>
                     <span className="mt-0.5 block truncate text-xs text-(--inbox-text-muted)">
                       {entry.blurb}
                     </span>
                   </span>
-                  <ChevronRight
-                    className="size-4 shrink-0 text-(--inbox-text-subtle) transition-transform group-hover:translate-x-0.5"
-                    aria-hidden
-                  />
+                  {entry.availability === "available" ? (
+                    <ChevronRight
+                      className="size-4 shrink-0 text-(--inbox-text-subtle) transition-transform group-hover:translate-x-0.5"
+                      aria-hidden
+                    />
+                  ) : null}
                 </button>
               </li>
             ))}
