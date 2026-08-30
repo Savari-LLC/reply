@@ -14,7 +14,9 @@ export const createUserPassword = internalMutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("users", {
       authProvider: args.provider,
+      providerAccountId: args.providerAccountId,
       username: args.profile.username,
+      name: args.profile.username,
     });
   },
 });
@@ -29,9 +31,11 @@ export const createUserGoogle = internalMutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("users", {
       authProvider: args.provider,
+      providerAccountId: args.providerAccountId,
+      username: args.profile.email ?? args.providerAccountId,
+      name: args.profile.name ?? args.profile.email ?? "Google user",
       email: args.profile.email,
-      name: args.profile.name,
-      picture: args.profile.picture,
+      image: args.profile.picture,
     });
   },
 });
