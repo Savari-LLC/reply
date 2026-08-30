@@ -106,15 +106,15 @@ const TECHNICAL_SENDERS: DemoSender[] = [
     senderName: "Elena Petrova",
     senderEmail: "elena.petrova@booking.com",
     domain: "booking.com",
-    subject: "Booking confirmation emails stopped arriving",
-    body: "Hello,\n\nCustomers who book through our portal integration stopped receiving confirmation emails yesterday around 4pm. The bookings appear in the dashboard, but no confirmation goes out, and guests keep calling to ask whether their reservation is real.\n\nCould you look into this as soon as possible?\n\nBest regards,\nElena Petrova\nPartner Integrations, Booking.com",
+    subject: "Payments failing when guests complete a booking",
+    body: "Hello,\n\nSince yesterday afternoon, guests who try to pay for a booking get an error right after pressing Pay. The booking is priced correctly, but the payment never goes through and the page just shows a generic error.\n\nGuests keep calling to ask whether their reservation is real, so this is urgent for us.\n\nBest regards,\nElena Petrova\nPartner Integrations, Booking.com",
   },
   {
     senderName: "Jonas Weber",
     senderEmail: "jonas.weber@zalando.com",
     domain: "zalando.com",
-    subject: "App crashes when opening order history",
-    body: "Hi team,\n\nSeveral of our staff report that the app crashes immediately when they open the Order History screen. It started after the latest update; the rest of the app works fine.\n\nWe rely on that screen for returns processing, so a quick fix would be appreciated.\n\nRegards,\nJonas Weber\nOperations, Zalando",
+    subject: "Card payments rejected at checkout since this morning",
+    body: "Hi team,\n\nOur staff report that every card payment is rejected at the final checkout step since this morning. Items go into the cart fine and the total looks right, but pressing Pay always fails.\n\nWe process returns and replacements through this flow, so a quick fix would be appreciated.\n\nRegards,\nJonas Weber\nOperations, Zalando",
   },
 ];
 
@@ -159,7 +159,12 @@ export const simulateIncomingEmail = mutation({
     const senders = args.kind === "technical" ? TECHNICAL_SENDERS : DEMO_SENDERS;
     const unused = senders.filter((sender) => !usedDomains.has(sender.domain));
     const pool = unused.length > 0 ? unused : senders;
-    const sender = pool[Math.floor(Math.random() * pool.length)]!;
+    // Technical reports arrive in a fixed order so the demo always opens with
+    // the checkout regression the connected demo repository actually contains.
+    const sender =
+      args.kind === "technical"
+        ? pool[0]!
+        : pool[Math.floor(Math.random() * pool.length)]!;
 
     const sentAt = Date.now();
     const threadId = await ctx.db.insert("threads", {
