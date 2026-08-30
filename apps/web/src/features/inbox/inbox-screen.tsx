@@ -6,6 +6,7 @@ import { InboxSidebar } from "./components/inbox-sidebar";
 import { ScreenErrorState } from "./components/screen-error-state";
 import type { RailUser } from "./components/sidebar-rail";
 import { ThreadList } from "./components/thread-list";
+import type { WorkspaceSwitcherData } from "./components/workspace-switcher";
 import type { ThreadFilter } from "./constants";
 import type { InboxController } from "./model";
 import type { ThreadViewer } from "./types";
@@ -20,13 +21,15 @@ type InboxScreenProps = {
   onSignOut?: () => void;
   /** Teammates currently viewing the selected thread (live presence). */
   viewers?: ThreadViewer[];
+  /** Workspace name + switcher shown at the top of the sidebar. */
+  workspace?: WorkspaceSwitcherData;
 };
 
 /**
  * Desktop shared-inbox screen (1280–1440px). Pure presentation: all data and
  * effects flow through the `InboxController` seam.
  */
-export function InboxScreen({ controller, currentUser, onSignOut, viewers }: InboxScreenProps) {
+export function InboxScreen({ controller, currentUser, onSignOut, viewers, workspace }: InboxScreenProps) {
   const { state } = controller;
   const [filter, setFilter] = useState<ThreadFilter>("all");
   // Incremented on deliberate keyboard selection so the workspace moves focus
@@ -68,6 +71,7 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
         onSelectInbox={controller.selectInbox}
         currentUser={currentUser}
         onSignOut={onSignOut}
+        workspace={workspace}
       />
       <div className="flex min-w-0 flex-1 py-3 pr-3">
         <div className="flex min-w-0 flex-1 overflow-hidden rounded-xl bg-(--inbox-surface)">
