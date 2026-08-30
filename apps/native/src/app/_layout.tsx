@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
+import { InboxSelectionProvider } from "@/lib/inbox-selection";
 import { colors } from "@/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -56,7 +57,9 @@ export default function RootLayout() {
       ambientSignIns={[oauth()]}
     >
       <ThemeProvider value={navigationTheme}>
-        <RootNavigator />
+        <InboxSelectionProvider>
+          <RootNavigator />
+        </InboxSelectionProvider>
         <StatusBar style="dark" />
       </ThemeProvider>
     </ConvexAuthProvider>
@@ -87,11 +90,18 @@ function RootNavigator() {
       }}
     >
       <Stack.Protected guard={isAuthenticated}>
+        <Stack.Screen name="index" options={{ title: "" }} />
         <Stack.Screen
-          name="index"
-          options={{ title: "Mailboxes", headerLargeTitle: true }}
+          name="mailboxes"
+          options={{
+            title: "Mailboxes",
+            presentation: "formSheet",
+            sheetAllowedDetents: [0.6, 1.0],
+            sheetGrabberVisible: true,
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
         />
-        <Stack.Screen name="inbox/[inboxId]" options={{ title: "" }} />
         <Stack.Screen name="thread/[threadId]" options={{ title: "" }} />
       </Stack.Protected>
       <Stack.Protected guard={!isAuthenticated}>

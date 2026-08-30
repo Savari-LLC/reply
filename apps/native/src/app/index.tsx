@@ -1,54 +1,56 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@reply/backend/convex/_generated/api";
+import type { Id } from "@reply/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
+import * as Haptics from "expo-haptics";
 import { Stack, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
+  Alert,
+  FlatList,
   Platform,
   Pressable,
-  SectionList,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
 import { Avatar } from "@/components/avatar";
-import {
-  CenteredLoading,
-  CenteredState,
-} from "@/components/screen-states";
-import {
-  FALLBACK_ACCENTS,
-  INBOX_ACCENTS,
-  LABEL_ACCENTS,
-  colors,
-} from "@/theme";
+import { LabelPill, UrgentPill } from "@/components/pills";
+import { CenteredLoading, CenteredState } from "@/components/screen-states";
+import { formatRelativeTime, getInitials } from "@/lib/format";
+import { useInboxSelection } from "@/lib/inbox-selection";
+import { STATUS_LABELS, colors, type ThreadStatus } from "@/theme";
 
-type InboxRow = NonNullable<
-  FunctionReturnType<typeof api.inbox.listInboxes>
+type ThreadRow = NonNullable<
+  FunctionReturnType<typeof api.inbox.listThreads>
 >[number];
 
-function inboxAccentDot(inbox: InboxRow, index: number): string {
-  if (inbox.kind === "personal") return colors.primary;
-  const slug = inbox.name.toLowerCase();
-  const accent =
-    INBOX_ACCENTS[slug] ?? FALLBACK_ACCENTS[index % FALLBACK_ACCENTS.length]!;
-  return LABEL_ACCENTS[accent].dot;
-}
+type Filter = "all" | ThreadStatus;
 
-export default function MailboxesScreen() {
+const FILTERS: Array<{ key: Filter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "open", label: STATUS_LABELS.open },
+  { key: "waiting", label: STATUS_LABELS.waiting },
+  { key: "closed", label: STATUS_LABELS.closed },
+];
+
+export default function InboxScreen() {
   const router = useRouter();
   const { signOut } = useAuthActions();
+  const { selected, select } = useInboxSelection();
   const currentUser = useQuery(api.users.getCurrent);
   const workspace = useQuery(api.workspaces.getCurrent);
   const inboxes = useQuery(api.inbox.listInboxes, workspace ? {} : "skip");
   const ensureSetup = useMutation(api.inbox.ensureSetup);
+  const simulateEmail = useMutation(api.simulate.simulateIncomingEmail);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [simulating, setSimulating] = useState(false);
 
-  // Idempotent per-session setup, mirroring the web app: guarantees the
-  // signed-in member has a personal inbox.
+  // Idempotent per-session setup, mirroring the web app.
   const setupRan = useRef(false);
   useEffect(() => {
     if (workspace && !setupRan.current) {
@@ -59,11 +61,28 @@ export default function MailboxesScreen() {
     }
   }, [workspace, ensureSetup]);
 
+  // Land on the personal inbox once mailboxes load.
+  useEffect(() => {
+    if (!selected && inboxes && inboxes.length > 0) {
+      const personal = inboxes.find((inbox) => inbox.kind === "personal");
+      const first = personal ?? inboxes[0]!;
+      select({ id: first._id, name: first.name, kind: first.kind });
+    }
+  }, [inboxes, selected, select]);
+
+  const threads = useQuery(
+    api.inbox.listThreads,
+    selected ? { inboxId: selected.id as Id<"inboxes"> } : "skip",
+  );
+
+  const filtered = useMemo(() => {
+    if (!threads) return [];
+    if (filter === "all") return threads;
+    return threads.filter((thread) => thread.status === filter);
+  }, [threads, filter]);
+
   const userName = currentUser?.name ?? currentUser?.username ?? "Signed in";
-  const userImage =
-    currentUser?.authProvider === "google"
-      ? (currentUser.image ?? undefined)
-      : undefined;
+  const userImage = currentUser?.image ?? undefined;
 
   function confirmSignOut() {
     if (Platform.OS === "ios") {
@@ -83,19 +102,66 @@ export default function MailboxesScreen() {
     }
   }
 
-  const headerRight = () => (
+  async function handleSimulate() {
+    if (!selected || simulating) return;
+    setSimulating(true);
+    try {
+      await simulateEmail({ inboxId: selected.id as Id<"inboxes"> });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Could not simulate an email right now.");
+    } finally {
+      setSimulating(false);
+    }
+  }
+
+  const headerLeft = () => (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Account, signed in as ${userName}`}
-      onPress={confirmSignOut}
+      accessibilityLabel="Switch mailbox"
+      testID="sidebar-button"
+      onPress={() => router.push("/mailboxes")}
       hitSlop={8}
     >
-      <Avatar name={userName} imageUrl={userImage} size={30} online />
+      <SymbolView
+        name="sidebar.left"
+        size={22}
+        tintColor={colors.textStrong}
+      />
     </Pressable>
   );
 
+  const headerRight = () => (
+    <View style={styles.headerRight}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Simulate incoming email"
+        accessibilityState={{ busy: simulating }}
+        testID="simulate-button"
+        onPress={handleSimulate}
+        disabled={simulating}
+        hitSlop={8}
+        style={simulating && styles.dimmed}
+      >
+        <SymbolView
+          name="envelope.badge"
+          size={21}
+          tintColor={colors.primaryText}
+        />
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Account, signed in as ${userName}`}
+        onPress={confirmSignOut}
+        hitSlop={8}
+      >
+        <Avatar name={userName} imageUrl={userImage} size={29} online />
+      </Pressable>
+    </View>
+  );
+
   let body;
-  if (workspace === undefined || (workspace && inboxes === undefined)) {
+  if (workspace === undefined || (workspace && (!selected || threads === undefined))) {
     body = <CenteredLoading label="Loading your inbox…" />;
   } else if (workspace === null) {
     body = (
@@ -105,87 +171,124 @@ export default function MailboxesScreen() {
         message="Your account isn't part of a workspace yet. Sign in on the web to create or join one, then come back."
       />
     );
-  } else {
-    const rows = inboxes ?? [];
-    const sections = [
-      {
-        title: "Your inbox",
-        data: rows.filter((inbox) => inbox.kind === "personal"),
-      },
-      {
-        title: "Shared inboxes",
-        data: rows.filter((inbox) => inbox.kind !== "personal"),
-      },
-    ].filter((section) => section.data.length > 0);
-
+  } else if (threads === null) {
     body = (
-      <SectionList
-        sections={sections}
+      <CenteredState
+        symbol="exclamationmark.triangle"
+        title="Conversations could not load"
+        message="You may not have access to this inbox anymore."
+      />
+    );
+  } else if (threads !== undefined && threads.length === 0) {
+    body = (
+      <CenteredState
+        symbol="tray"
+        title="You're all caught up"
+        message={`No conversations in ${selected?.name ?? "this inbox"}. Tap the envelope above to simulate an incoming email.`}
+      />
+    );
+  } else {
+    body = (
+      <FlatList
+        data={filtered}
         keyExtractor={(item) => item._id}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.workspaceRow}>
-            <Text style={styles.workspaceName}>{workspace.workspace.name}</Text>
-            <Text style={styles.workspaceMeta}>
-              {workspace.memberCount}{" "}
-              {workspace.memberCount === 1 ? "member" : "members"}
+        ListHeaderComponent={<FilterBar filter={filter} onChange={setFilter} />}
+        ListEmptyComponent={
+          <View style={styles.emptyFilter}>
+            <Text style={styles.emptyFilterText}>
+              No conversations match this filter.
             </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setFilter("all")}
+              hitSlop={8}
+            >
+              <Text style={styles.clearFilterText}>Clear filter</Text>
+            </Pressable>
           </View>
         }
-        renderSectionHeader={({ section }) => (
-          <Text style={styles.sectionHeader}>{section.title.toUpperCase()}</Text>
-        )}
-        renderItem={({ item, index, section }) => (
-          <InboxListRow
-            inbox={item}
-            accent={inboxAccentDot(item, index)}
+        renderItem={({ item, index }) => (
+          <ThreadListRow
+            thread={item}
             first={index === 0}
-            last={index === section.data.length - 1}
+            last={index === filtered.length - 1}
             onPress={() =>
               router.push({
-                pathname: "/inbox/[inboxId]",
-                params: { inboxId: item._id, name: item.name },
+                pathname: "/thread/[threadId]",
+                params: { threadId: item._id },
               })
             }
           />
         )}
-        SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
-        stickySectionHeadersEnabled={false}
       />
     );
   }
 
   return (
     <>
-      <Stack.Screen options={{ headerRight }} />
+      <Stack.Screen
+        options={{
+          title: selected?.name ?? "Inbox",
+          headerLeft,
+          headerRight,
+        }}
+      />
       {body}
     </>
   );
 }
 
-function InboxListRow({
-  inbox,
-  accent,
+function FilterBar({
+  filter,
+  onChange,
+}: {
+  filter: Filter;
+  onChange: (filter: Filter) => void;
+}) {
+  return (
+    <View style={styles.filterBar} accessibilityRole="tablist">
+      {FILTERS.map((item) => {
+        const selected = item.key === filter;
+        return (
+          <Pressable
+            key={item.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(item.key)}
+            style={[styles.filterChip, selected && styles.filterChipSelected]}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selected && styles.filterChipTextSelected,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function ThreadListRow({
+  thread,
   first,
   last,
   onPress,
 }: {
-  inbox: InboxRow;
-  accent: string;
+  thread: ThreadRow;
   first: boolean;
   last: boolean;
   onPress: () => void;
 }) {
-  const subtitle = inbox.channel
-    ? inbox.channel.emailAddress
-    : inbox.kind === "personal"
-      ? "Only visible to you"
-      : "No channel connected";
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${inbox.name}, ${inbox.unreadCount} unread`}
+      accessibilityLabel={`${thread.unread ? "Unread, " : ""}${thread.senderName}, ${thread.subject}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
@@ -194,78 +297,118 @@ function InboxListRow({
         pressed && styles.rowPressed,
       ]}
     >
-      <View style={[styles.rowIcon, { backgroundColor: `${accent}1f` }]}>
-        <SymbolView
-          name={inbox.kind === "personal" ? "person.fill" : "tray.fill"}
-          size={15}
-          tintColor={accent}
-        />
+      <View style={styles.unreadColumn}>
+        {thread.unread ? <View style={styles.unreadDot} /> : null}
       </View>
-      <View style={styles.rowBody}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {inbox.name}
-        </Text>
-        <Text style={styles.rowSubtitle} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
-      {inbox.unreadCount > 0 ? (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadBadgeText}>{inbox.unreadCount}</Text>
-        </View>
-      ) : null}
-      <SymbolView
-        name="chevron.right"
-        size={13}
-        weight="semibold"
-        tintColor={colors.textMuted}
+      <Avatar
+        name={thread.senderName}
+        imageUrl={thread.company?.logoUrl ?? undefined}
+        size={36}
+        online
       />
+      <View style={styles.rowBody}>
+        <View style={styles.rowTopLine}>
+          <Text
+            style={[styles.sender, thread.unread && styles.senderUnread]}
+            numberOfLines={1}
+          >
+            {thread.senderName}
+          </Text>
+          <Text style={styles.time}>
+            {formatRelativeTime(thread.lastMessageAt)}
+          </Text>
+        </View>
+        <Text style={styles.subject} numberOfLines={1}>
+          {thread.subject}
+        </Text>
+        <Text style={styles.preview} numberOfLines={2}>
+          {thread.preview}
+        </Text>
+        {(thread.labels.length > 0 ||
+          thread.assignee ||
+          thread.priority === "urgent") && (
+          <View style={styles.metaLine}>
+            {thread.priority === "urgent" ? <UrgentPill /> : null}
+            {thread.labels.map((label) => (
+              <LabelPill key={label.name} name={label.name} color={label.color} />
+            ))}
+            <View style={styles.metaSpacer} />
+            {thread.assignee ? (
+              <View
+                style={styles.assignee}
+                accessibilityLabel={`Assigned to ${thread.assignee.name}`}
+              >
+                <Text style={styles.assigneeText}>
+                  {getInitials(thread.assignee.name)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+      </View>
       {!last ? <View style={styles.rowSeparator} /> : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  dimmed: {
+    opacity: 0.4,
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
-  workspaceRow: {
-    paddingTop: 4,
-    paddingBottom: 10,
-    paddingHorizontal: 4,
+  filterBar: {
     flexDirection: "row",
-    alignItems: "baseline",
     gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
   },
-  workspaceName: {
-    fontSize: 15,
-    fontWeight: "600",
+  filterChip: {
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
+    backgroundColor: colors.active,
+  },
+  filterChipSelected: {
+    backgroundColor: colors.brandDark,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: "500",
     color: colors.textSubtle,
-    letterSpacing: -0.2,
+    letterSpacing: -0.1,
   },
-  workspaceMeta: {
-    fontSize: 12,
+  filterChipTextSelected: {
+    color: "#ffffff",
+  },
+  emptyFilter: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 48,
+  },
+  emptyFilterText: {
+    fontSize: 14,
     color: colors.textMuted,
   },
-  sectionHeader: {
-    fontSize: 12,
+  clearFilterText: {
+    fontSize: 14,
     fontWeight: "600",
-    color: colors.textMuted,
-    letterSpacing: 0.6,
-    paddingHorizontal: 4,
-    paddingBottom: 7,
-  },
-  sectionGap: {
-    height: 12,
+    color: colors.primaryText,
   },
   row: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    gap: 10,
     backgroundColor: colors.surfaceElevated,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    paddingRight: 14,
+    paddingLeft: 6,
   },
   rowFirst: {
     borderTopLeftRadius: 14,
@@ -280,44 +423,78 @@ const styles = StyleSheet.create({
   },
   rowSeparator: {
     position: "absolute",
-    left: 56,
+    left: 62,
     right: 0,
     bottom: 0,
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.borderSubtle,
   },
-  rowIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+  unreadColumn: {
+    width: 14,
     alignItems: "center",
-    justifyContent: "center",
+    paddingTop: 14,
+  },
+  unreadDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
   },
   rowBody: {
     flex: 1,
-    gap: 1,
+    gap: 2,
   },
-  rowTitle: {
-    fontSize: 16,
+  rowTopLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sender: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: "500",
-    color: colors.textStrong,
+    color: colors.text,
     letterSpacing: -0.2,
   },
-  rowSubtitle: {
+  senderUnread: {
+    fontWeight: "600",
+    color: colors.textStrong,
+  },
+  time: {
     fontSize: 12,
     color: colors.textMuted,
   },
-  unreadBadge: {
-    minWidth: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    alignItems: "center",
+  subject: {
+    fontSize: 14,
+    color: colors.textSubtle,
+    letterSpacing: -0.1,
   },
-  unreadBadgeText: {
-    color: "#ffffff",
-    fontSize: 12,
+  preview: {
+    fontSize: 13,
+    lineHeight: 17,
+    color: colors.textMuted,
+  },
+  metaLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+    flexWrap: "wrap",
+  },
+  metaSpacer: {
+    flex: 1,
+  },
+  assignee: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.active,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  assigneeText: {
+    fontSize: 9,
     fontWeight: "600",
+    color: colors.textSubtle,
   },
 });

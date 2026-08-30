@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@convex-dev/auth": "^2.0.0-alpha.1",
+    "@convex-dev/presence": "0.4.0",
     "@reply/backend": "workspace:*",
     "convex": "catalog:",
     "expo": "~57.0.18",
