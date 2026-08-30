@@ -30,7 +30,7 @@ const ICON_CONTROL =
   "flex size-8 shrink-0 items-center justify-center rounded-lg text-(--inbox-text-subtle) outline-none transition-colors hover:bg-(--inbox-hover) hover:text-(--inbox-text) focus-visible:ring-2 focus-visible:ring-(--inbox-primary) disabled:pointer-events-none disabled:opacity-60";
 
 const MENU =
-  "min-w-44 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-(--inbox-shadow-sm)";
+  "min-w-44 rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) p-1 shadow-lg shadow-black/5";
 
 const STATUS_OPTIONS: ThreadStatus[] = ["open", "waiting", "closed"];
 
