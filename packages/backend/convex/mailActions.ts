@@ -6,16 +6,13 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { requireIdentity } from "./authHelpers";
 import {
   authorizationUrl,
-  decryptSecret,
   encryptSecret,
-  fetchMailboxThreads,
   hashToken,
   pkceChallenge,
   providerConfiguration,
   randomToken,
-  refreshAccessToken,
-  type MailProvider,
 } from "./mailProvider";
+import { buildSeedThreads, ENRICHED_SEED_DOMAINS } from "./mailSeed";
 
 const providerValidator = v.union(v.literal("gmail"), v.literal("outlook"));
 const syncResultValidator = v.object({
@@ -69,29 +66,9 @@ async function runSync(
   });
   await ctx.runMutation(internal.mail.markSyncStarted, { connectionId: connection._id });
   try {
-    let accessToken = await decryptSecret(connection.accessTokenEncrypted!);
-    if (connection.accessTokenExpiresAt <= Date.now() + 60_000) {
-      if (!connection.refreshTokenEncrypted) {
-        throw new Error("The mailbox session expired. Reconnect the mailbox to continue.");
-      }
-      const refreshToken = await decryptSecret(connection.refreshTokenEncrypted);
-      const refreshed = await refreshAccessToken(connection.provider as MailProvider, refreshToken);
-      accessToken = refreshed.accessToken;
-      await ctx.runMutation(internal.mail.updateTokens, {
-        connectionId: connection._id,
-        accessTokenEncrypted: await encryptSecret(refreshed.accessToken),
-        refreshTokenEncrypted: refreshed.refreshToken
-          ? await encryptSecret(refreshed.refreshToken)
-          : undefined,
-        accessTokenExpiresAt: refreshed.expiresAt,
-        scope: refreshed.scope,
-      });
-    }
-    const threads = await fetchMailboxThreads(
-      connection.provider as MailProvider,
-      accessToken,
-      connection.emailAddress,
-    );
+    // Hackathon mode: the live provider fetch is disabled. We seed demo
+    // threads instead so a freshly connected mailbox has data immediately.
+    const threads = buildSeedThreads(connection.emailAddress, Date.now());
     let insertedThreads = 0;
     let insertedMessages = 0;
     for (const thread of threads) {
@@ -101,6 +78,19 @@ async function runSync(
       );
       if (result.insertedThread) insertedThreads += 1;
       insertedMessages += result.insertedMessages;
+    }
+    // Enrich the seeded senders that write from real company domains so their
+    // Context.dev company profiles are ready when the operator opens a thread.
+    const seededDomains = new Set(
+      threads
+        .map((thread) => thread.senderEmail.split("@")[1] ?? "")
+        .filter((domain) => ENRICHED_SEED_DOMAINS.includes(domain)),
+    );
+    for (const domain of seededDomains) {
+      await ctx.scheduler.runAfter(0, internal.companyContext.enrichDomain, {
+        workspaceId: connection.workspaceId,
+        domain,
+      });
     }
     await ctx.runMutation(internal.mail.finishSync, {
       connectionId: connection._id,
