@@ -161,6 +161,13 @@ export type ThreadViewer = {
   isSelf: boolean;
 };
 
+/**
+ * Sidebar view scoping the thread list. "all" is the inbox row itself;
+ * "open"/"assigned"/"done" scope one inbox; "mentions"/"sent" are personal
+ * views that span every inbox the member can access.
+ */
+export type InboxView = "all" | "open" | "assigned" | "done" | "mentions" | "sent";
+
 export type ScreenStatus = "loading" | "ready" | "error";
 export type ListStatus = "idle" | "loading" | "ready" | "empty" | "error";
 export type ThreadPaneStatus = "idle" | "loading" | "ready" | "error";
@@ -171,6 +178,7 @@ export type InboxScreenState = {
   inboxes: InboxSummary[];
   teammates: Teammate[];
   selectedInboxId: string | null;
+  selectedView: InboxView;
   selectedThreadId: string | null;
   listStatus: ListStatus;
   listError?: string;

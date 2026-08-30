@@ -164,7 +164,10 @@ export default defineSchema({
     senderEmail: v.optional(v.string()),
     body: v.string(),
     sentAt: v.number(),
-  }).index("by_threadId_and_sentAt", ["threadId", "sentAt"]),
+  })
+    .index("by_threadId_and_sentAt", ["threadId", "sentAt"])
+    // Powers the personal "Sent" view: replies authored by one member.
+    .index("by_workspaceId_and_authorId", ["workspaceId", "authorId"]),
 
   // Per-user unread state, scoped for workspace unread counts.
   threadReads: defineTable({

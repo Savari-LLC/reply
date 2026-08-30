@@ -15,6 +15,7 @@ import type { InboxController, LoadScope } from "./model";
 import type {
   CommentDraft,
   InboxScreenState,
+  InboxView,
   Message,
   OperationKey,
   ThreadComment,
@@ -22,6 +23,20 @@ import type {
   ThreadSummary,
   ThreadViewer,
 } from "./types";
+
+/** Client-side stand-in for the server-scoped sidebar views. */
+function matchesView(thread: ThreadSummary, view: InboxView): boolean {
+  if (view === "all") return true;
+  if (view === "open") return thread.status !== "closed";
+  if (view === "assigned") return thread.status !== "closed" && thread.assigneeId !== null;
+  if (view === "done") return thread.status === "closed";
+  if (view === "sent") {
+    return (FIXTURE_MESSAGES[thread.id] ?? []).some(
+      (message) => message.direction === "outbound",
+    );
+  }
+  return false; // mentions: the fixtures seed no comments
+}
 
 const LOAD_DELAY_MS = 450;
 const MUTATION_DELAY_MS = 350;
@@ -50,6 +65,7 @@ function initialState(): InboxScreenState {
     inboxes: [],
     teammates: [],
     selectedInboxId: null,
+    selectedView: "all",
     selectedThreadId: null,
     listStatus: "idle",
     threads: [],
@@ -123,7 +139,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
   }, [scenario, shouldFail]);
 
   const loadList = useCallback(
-    async (inboxId: string) => {
+    async (inboxId: string, view: InboxView = "all") => {
       setState((prev) => ({ ...prev, listStatus: "loading", listError: undefined }));
       await delay(LOAD_DELAY_MS);
       if (scenario === "list-loading") return;
@@ -135,7 +151,12 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
         }));
         return;
       }
-      const threads = allThreads.filter((thread) => thread.inboxId === inboxId);
+      // Mentions and Sent span every inbox; the other views scope one inbox.
+      const workspaceWide = view === "mentions" || view === "sent";
+      const threads = allThreads.filter(
+        (thread) =>
+          (workspaceWide || thread.inboxId === inboxId) && matchesView(thread, view),
+      );
       setState((prev) => ({
         ...prev,
         listStatus: threads.length === 0 ? "empty" : "ready",
@@ -232,15 +253,16 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
   );
 
   const controller = useMemo<InboxController>(() => {
-    const selectInbox = (inboxId: string) => {
+    const selectInbox = (inboxId: string, view: InboxView = "all") => {
       setState((prev) => ({
         ...prev,
         selectedInboxId: inboxId,
+        selectedView: view,
         selectedThreadId: null,
         selectedThread: null,
         threadStatus: "idle",
       }));
-      void loadList(inboxId);
+      void loadList(inboxId, view);
     };
 
     const selectThread = (threadId: string) => {
@@ -393,7 +415,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       if (scope === "screen") return loadScreen();
       if (scope === "list") {
         const inboxId = state.selectedInboxId ?? FIXTURE_INBOXES.find((inbox) => inbox.hasChannel)!.id;
-        return loadList(inboxId);
+        return loadList(inboxId, state.selectedView);
       }
       if (state.selectedThreadId) return loadThread(state.selectedThreadId);
     };

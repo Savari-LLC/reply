@@ -15,6 +15,7 @@ import type * as companyContext from "../companyContext.js";
 import type * as contextPreview from "../contextPreview.js";
 import type * as copilot from "../copilot.js";
 import type * as healthCheck from "../healthCheck.js";
+import type * as http from "../http.js";
 import type * as inbox from "../inbox.js";
 import type * as inboxes from "../inboxes.js";
 import type * as invitations from "../invitations.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   contextPreview: typeof contextPreview;
   copilot: typeof copilot;
   healthCheck: typeof healthCheck;
+  http: typeof http;
   inbox: typeof inbox;
   inboxes: typeof inboxes;
   invitations: typeof invitations;
