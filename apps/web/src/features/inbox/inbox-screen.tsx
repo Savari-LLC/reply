@@ -8,6 +8,7 @@ import type { RailUser } from "./components/sidebar-rail";
 import { ThreadList } from "./components/thread-list";
 import type { ThreadFilter } from "./constants";
 import type { InboxController } from "./model";
+import type { ThreadViewer } from "./types";
 import { filterThreads } from "./utils";
 
 import "./inbox.css";
@@ -17,13 +18,15 @@ type InboxScreenProps = {
   /** Signed-in user shown in the rail; omitted in fixture/preview mode. */
   currentUser?: RailUser;
   onSignOut?: () => void;
+  /** Teammates currently viewing the selected thread (live presence). */
+  viewers?: ThreadViewer[];
 };
 
 /**
  * Desktop shared-inbox screen (1280–1440px). Pure presentation: all data and
  * effects flow through the `InboxController` seam.
  */
-export function InboxScreen({ controller, currentUser, onSignOut }: InboxScreenProps) {
+export function InboxScreen({ controller, currentUser, onSignOut, viewers }: InboxScreenProps) {
   const { state } = controller;
   const [filter, setFilter] = useState<ThreadFilter>("all");
   // Incremented on deliberate keyboard selection so the workspace moves focus
@@ -95,6 +98,8 @@ export function InboxScreen({ controller, currentUser, onSignOut }: InboxScreenP
                 detail={state.selectedThread}
                 status={state.threadStatus}
                 error={state.threadError}
+                inboxName={selectedInbox?.name}
+                viewers={viewers}
                 teammates={state.teammates}
                 operations={state.operations}
                 actions={workspaceActions}

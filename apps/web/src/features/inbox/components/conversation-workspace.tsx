@@ -11,6 +11,7 @@ import type {
   ThreadPaneStatus,
   ThreadPriority,
   ThreadStatus,
+  ThreadViewer,
 } from "../types";
 import { CompanyProfilePanel } from "./company-profile-panel";
 import { ConversationHeader } from "./conversation-header";
@@ -33,6 +34,9 @@ export type ConversationWorkspaceProps = {
   detail: ThreadDetail | null;
   status: ThreadPaneStatus;
   error?: string;
+  inboxName?: string;
+  /** Teammates currently viewing the selected thread (live presence). */
+  viewers?: ThreadViewer[];
   teammates: Teammate[];
   operations: Record<OperationKey, OperationState>;
   actions: WorkspaceActions;
@@ -48,6 +52,8 @@ export function ConversationWorkspace({
   detail,
   status,
   error,
+  inboxName,
+  viewers,
   teammates,
   operations,
   actions,
@@ -145,6 +151,8 @@ export function ConversationWorkspace({
       <ConversationHeader
         thread={detail.thread}
         headingRef={headingRef}
+        inboxName={inboxName}
+        viewers={viewers}
         teammates={teammates}
         operations={operations}
         actions={actions}
