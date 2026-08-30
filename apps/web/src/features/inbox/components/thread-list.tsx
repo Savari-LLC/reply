@@ -1,9 +1,14 @@
-import { Button } from "@reply/ui/components/button";
+import { ListFilter } from "lucide-react";
 
 import { FILTER_LABELS, THREAD_FILTERS, type ThreadFilter } from "../constants";
 import type { ListStatus, Teammate, ThreadSummary } from "../types";
-import { formatRelativeTime } from "../utils";
-import { ThreadRowSkeleton } from "./inbox-shell-skeleton";
+import {
+  ThreadListEmptyFilter,
+  ThreadListEmptyInbox,
+  ThreadListError,
+  ThreadListLoading,
+} from "./thread-list-states";
+import { ThreadRow } from "./thread-row";
 
 export type ThreadListProps = {
   inboxName: string;
@@ -22,25 +27,28 @@ export type ThreadListProps = {
   onRetry: () => Promise<void>;
 };
 
-/**
- * Second column: thread list with filter tabs and list states.
- *
- * Wave 1A (F2) replaces the internals with the full Figma treatment; the
- * props and outer geometry are frozen.
- */
+/** Second column: thread list with filter tabs and pane-local list states. */
 export function ThreadList(props: ThreadListProps) {
-  const { inboxName, threads, status, filter, onFilterChange, onSelectThread, selectedThreadId } =
-    props;
+  const { inboxName, threads, status, filter, onFilterChange, selectedThreadId } = props;
 
   return (
     <section
       className="flex w-[clamp(300px,25vw,380px)] shrink-0 flex-col border-r border-(--inbox-border-subtle)"
       aria-label={`${inboxName} conversations`}
     >
-      <header className="flex h-[100px] shrink-0 flex-col justify-center gap-3 px-4">
-        <h1 className="text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
-          {inboxName}
-        </h1>
+      <header className="flex h-[100px] shrink-0 flex-col gap-3 px-4 pt-3">
+        <div className="flex h-8 items-center gap-2">
+          <h1 className="min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.1px] text-(--inbox-text-strong)">
+            {inboxName}
+          </h1>
+          <button
+            type="button"
+            aria-label="Filter conversations"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--inbox-text) outline-none hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+          >
+            <ListFilter className="size-4" aria-hidden />
+          </button>
+        </div>
         <div role="tablist" aria-label="Filter conversations" className="flex gap-1">
           {THREAD_FILTERS.map((tab) => (
             <button
@@ -70,77 +78,29 @@ export function ThreadList(props: ThreadListProps) {
       ) : null}
     </section>
   );
+}
 
-  function ThreadListBody(bodyProps: ThreadListProps) {
-    if (bodyProps.status === "loading") {
-      return (
-        <div className="flex flex-col gap-2" aria-busy="true">
-          {Array.from({ length: 6 }, (_, index) => (
-            <ThreadRowSkeleton key={index} />
-          ))}
-        </div>
-      );
-    }
-    if (bodyProps.status === "error") {
-      return (
-        <div className="flex flex-col items-center gap-3 px-4 py-10 text-center" role="alert">
-          <p className="text-sm text-(--inbox-text)">Conversations could not load.</p>
-          <Button variant="outline" className="h-8 rounded-lg" onClick={bodyProps.onRetry}>
-            Retry
-          </Button>
-        </div>
-      );
-    }
-    if (bodyProps.status === "empty" || !bodyProps.hasAnyThreads) {
-      return (
-        <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
-          <p className="text-sm font-medium text-(--inbox-text-strong)">You’re all caught up</p>
-          <p className="text-xs text-(--inbox-text-muted)">
-            No conversations in {bodyProps.inboxName}.
-          </p>
-        </div>
-      );
-    }
-    if (bodyProps.threads.length === 0) {
-      return (
-        <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-          <p className="text-sm text-(--inbox-text)">No conversations match this filter.</p>
-          <Button variant="outline" className="h-8 rounded-lg" onClick={bodyProps.onClearFilters}>
-            Clear filters
-          </Button>
-        </div>
-      );
-    }
-    return (
-      <ul className="flex flex-col gap-2">
-        {bodyProps.threads.map((thread) => (
-          <li key={thread.id}>
-            <button
-              type="button"
-              onClick={() => onSelectThread(thread.id)}
-              aria-current={thread.id === selectedThreadId ? "true" : undefined}
-              className={`flex h-20 w-full flex-col justify-center gap-0.5 rounded-xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
-                thread.id === selectedThreadId
-                  ? "bg-(--inbox-active)"
-                  : "hover:bg-(--inbox-hover)"
-              }`}
-            >
-              <span className="flex items-baseline justify-between gap-2">
-                <span
-                  className={`truncate text-sm tracking-[-0.1px] ${thread.unread ? "font-semibold text-(--inbox-text-strong)" : "font-medium text-(--inbox-text)"}`}
-                >
-                  {thread.customerName}
-                </span>
-                <span className="shrink-0 text-xs text-(--inbox-text-muted)">
-                  {formatRelativeTime(thread.lastActivityAt)}
-                </span>
-              </span>
-              <span className="truncate text-sm text-(--inbox-text)">{thread.subject}</span>
-              <span className="truncate text-xs text-(--inbox-text-muted)">{thread.preview}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    );
+function ThreadListBody(props: ThreadListProps) {
+  if (props.status === "loading") return <ThreadListLoading />;
+  if (props.status === "error") return <ThreadListError onRetry={props.onRetry} />;
+  if (props.status === "empty" || !props.hasAnyThreads) {
+    return <ThreadListEmptyInbox inboxName={props.inboxName} />;
   }
+  if (props.threads.length === 0) {
+    return <ThreadListEmptyFilter onClearFilters={props.onClearFilters} />;
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {props.threads.map((thread) => (
+        <li key={thread.id}>
+          <ThreadRow
+            thread={thread}
+            assignee={props.teammates.find((teammate) => teammate.id === thread.assigneeId) ?? null}
+            selected={thread.id === props.selectedThreadId}
+            onSelect={props.onSelectThread}
+          />
+        </li>
+      ))}
+    </ul>
+  );
 }
