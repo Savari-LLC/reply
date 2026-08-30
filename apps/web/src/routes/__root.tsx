@@ -25,11 +25,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Reply — hackathon starter",
+        title: "Reply — shared inbox",
       },
       {
         name: "description",
-        content: "The prepared technical foundation and build plan for the Reply hackathon project.",
+        content: "Reply turns shared email inboxes into owned conversations with live company context.",
       },
       {
         name: "theme-color",
@@ -65,7 +65,7 @@ function RootDocument() {
             <Outlet />
           </TooltipProvider>
           <Toaster richColors position="bottom-right" />
-          {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-left" />}
+          {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
           <Scripts />
         </body>
       </html>

@@ -1,0 +1,461 @@
+import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "@reply/backend/convex/_generated/api";
+import type { Id } from "@reply/backend/convex/_generated/dataModel";
+import { useAction, useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { INITIAL_OPERATIONS, TOAST_IDS } from "./constants";
+import { InboxScreen } from "./inbox-screen";
+import type { InboxController, LoadScope } from "./model";
+import type {
+  AsyncStatus,
+  CompanyProfile,
+  InboxScreenState,
+  InboxSummary,
+  LabelAccent,
+  ListStatus,
+  Message,
+  OperationKey,
+  ScreenStatus,
+  Teammate,
+  ThreadDetail,
+  ThreadPaneStatus,
+  ThreadSummary,
+} from "./types";
+import { getInitials } from "./utils";
+
+type InboxRow = NonNullable<FunctionReturnType<typeof api.demo.listInboxes>>[number];
+type ThreadRow = NonNullable<FunctionReturnType<typeof api.demo.listThreads>>[number];
+type ThreadDetailRow = NonNullable<FunctionReturnType<typeof api.demo.getThread>>;
+type TeammateRow = NonNullable<FunctionReturnType<typeof api.demo.listTeammates>>[number];
+
+/** Known inbox accents; unknown inboxes rotate through the fallback list. */
+const INBOX_ACCENTS: Record<string, LabelAccent> = {
+  sales: "purple",
+  accounts: "blue",
+  support: "magenta",
+};
+
+const FALLBACK_ACCENTS: LabelAccent[] = ["purple", "blue", "magenta", "amber", "yellow"];
+
+/** Seeded label colors mapped onto the frozen accent palette. */
+const LABEL_COLOR_ACCENTS: Record<string, LabelAccent> = {
+  "#2563eb": "blue", // New lead
+  "#9333ea": "purple", // VIP
+  "#d97706": "amber", // Billing
+  "#dc2626": "magenta", // Bug
+  "#059669": "yellow", // Renewal
+  "#0891b2": "blue", // Feature request
+};
+
+function mapInbox(row: InboxRow, index: number): InboxSummary {
+  const slug = row.name.toLowerCase();
+  return {
+    id: row._id,
+    name: row.name,
+    slug,
+    displayOrder: index,
+    unreadCount: row.unreadCount,
+    accent: INBOX_ACCENTS[slug] ?? FALLBACK_ACCENTS[index % FALLBACK_ACCENTS.length]!,
+  };
+}
+
+function mapTeammate(row: TeammateRow): Teammate {
+  return {
+    id: row._id,
+    name: row.name,
+    initials: getInitials(row.name),
+    role: "Teammate",
+  };
+}
+
+function mapThread(row: ThreadRow): ThreadSummary {
+  return {
+    id: row._id,
+    inboxId: row.inboxId,
+    customerName: row.senderName,
+    customerEmail: row.senderEmail,
+    subject: row.subject,
+    preview: row.preview,
+    status: row.status,
+    priority: row.priority,
+    assigneeId: row.assignee?._id ?? null,
+    labels: row.labels.map((label) => ({
+      id: label.name,
+      name: label.name,
+      accent: LABEL_COLOR_ACCENTS[label.color.toLowerCase()] ?? "blue",
+    })),
+    unread: row.unread,
+    lastActivityAt: row.lastMessageAt,
+  };
+}
+
+function mapMessages(detail: ThreadDetailRow): Message[] {
+  return detail.messages.map((message) => ({
+    id: message._id,
+    threadId: detail._id,
+    direction: message.direction,
+    authorName:
+      message.direction === "inbound"
+        ? (message.senderName ?? detail.senderName)
+        : (message.author ?? "Teammate"),
+    authorEmail: message.direction === "inbound" ? detail.senderEmail : undefined,
+    body: message.body,
+    sentAt: message.sentAt,
+  }));
+}
+
+function mapStoredCompany(detail: ThreadDetailRow): CompanyProfile | undefined {
+  const profile = detail.companyProfile;
+  if (!profile) return undefined;
+  return {
+    name: profile.name,
+    domain: detail.senderDomain,
+    description: profile.description ?? undefined,
+    industry: profile.industry ?? undefined,
+    logoUrl: profile.logoUrl ?? undefined,
+  };
+}
+
+/**
+ * Convex-backed implementation of the `InboxController` seam. Data loads
+ * reactively (assignments, statuses, replies, and unread counts update live);
+ * local state only tracks selection and per-operation progress.
+ */
+export function ConvexInboxPage() {
+  const { signOut } = useAuthActions();
+  const currentUser = useQuery(api.users.getCurrent);
+  const inboxes = useQuery(api.demo.listInboxes, {});
+  const teammateRows = useQuery(api.demo.listTeammates, {});
+  const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const threadRows = useQuery(
+    api.demo.listThreads,
+    selectedInboxId ? { inboxId: selectedInboxId } : "skip",
+  );
+  const detailRow = useQuery(
+    api.demo.getThread,
+    selectedThreadId ? { threadId: selectedThreadId } : "skip",
+  );
+
+  const ensureSeeded = useMutation(api.demo.ensureSeeded);
+  const markRead = useMutation(api.demo.markRead);
+  const assignMutation = useMutation(api.demo.assign);
+  const setStatusMutation = useMutation(api.demo.setStatus);
+  const sendReplyMutation = useMutation(api.demo.sendReply);
+  const retrieveCompany = useAction(api.contextPreview.retrieveCompany);
+
+  const [operations, setOperations] = useState(INITIAL_OPERATIONS);
+  const setOperation = useCallback(
+    (key: OperationKey, status: AsyncStatus, message?: string) => {
+      setOperations((prev) => ({ ...prev, [key]: { status, message } }));
+    },
+    [],
+  );
+
+  // First sign-in: seed the demo workspace and join it, then queries go live.
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const seedingRef = useRef(false);
+  const runSetup = useCallback(async () => {
+    if (seedingRef.current) return;
+    seedingRef.current = true;
+    setSetupError(null);
+    try {
+      await ensureSeeded({});
+    } catch (error) {
+      setSetupError(
+        error instanceof Error
+          ? error.message
+          : "The demo workspace could not be prepared.",
+      );
+    } finally {
+      seedingRef.current = false;
+    }
+  }, [ensureSeeded]);
+
+  useEffect(() => {
+    if (inboxes === null && setupError === null) void runSetup();
+  }, [inboxes, setupError, runSetup]);
+
+  // Default to the first inbox once the workspace loads.
+  useEffect(() => {
+    if (!selectedInboxId && inboxes && inboxes.length > 0) {
+      setSelectedInboxId(inboxes[0]!._id);
+    }
+  }, [inboxes, selectedInboxId]);
+
+  // Opening an unread conversation marks it read for the current user.
+  const detailId = detailRow?._id;
+  const detailUnread = detailRow?.unread;
+  useEffect(() => {
+    if (detailId && detailUnread) {
+      markRead({ threadId: detailId }).catch(() => {});
+    }
+  }, [detailId, detailUnread, markRead]);
+
+  // Live Context.dev enrichment for domains without a stored company profile.
+  const [enriched, setEnriched] = useState<Record<string, CompanyProfile | null>>({});
+  const requestedDomains = useRef<Set<string>>(new Set());
+  const missingDomain =
+    detailRow && !detailRow.companyProfile ? detailRow.senderDomain : null;
+  useEffect(() => {
+    if (!missingDomain || requestedDomains.current.has(missingDomain)) return;
+    requestedDomains.current.add(missingDomain);
+    retrieveCompany({ domain: missingDomain })
+      .then((company) => {
+        setEnriched((prev) => ({
+          ...prev,
+          [missingDomain]: company
+            ? {
+                name: company.name ?? company.domain,
+                domain: company.domain,
+                description: company.description ?? undefined,
+                logoUrl: company.logoUrl ?? undefined,
+              }
+            : null,
+        }));
+      })
+      .catch(() => {
+        setEnriched((prev) => ({ ...prev, [missingDomain]: null }));
+      });
+  }, [missingDomain, retrieveCompany]);
+
+  const state = useMemo<InboxScreenState>(() => {
+    const screenStatus: ScreenStatus = setupError
+      ? "error"
+      : !inboxes || !teammateRows
+        ? "loading"
+        : "ready";
+
+    const listStatus: ListStatus = !selectedInboxId
+      ? "idle"
+      : threadRows === undefined
+        ? "loading"
+        : threadRows === null
+          ? "error"
+          : threadRows.length === 0
+            ? "empty"
+            : "ready";
+
+    const threadStatus: ThreadPaneStatus = !selectedThreadId
+      ? "idle"
+      : detailRow === undefined
+        ? "loading"
+        : detailRow === null
+          ? "error"
+          : "ready";
+
+    let selectedThread: ThreadDetail | null = null;
+    if (detailRow) {
+      const company =
+        mapStoredCompany(detailRow) ?? enriched[detailRow.senderDomain] ?? undefined;
+      selectedThread = {
+        thread: {
+          ...mapThread(detailRow),
+          companyName: company?.name,
+        },
+        messages: mapMessages(detailRow),
+        company,
+      };
+    }
+
+    return {
+      screenStatus,
+      screenError: setupError ?? undefined,
+      inboxes: inboxes?.map(mapInbox) ?? [],
+      teammates: teammateRows?.map(mapTeammate) ?? [],
+      selectedInboxId,
+      selectedThreadId,
+      listStatus,
+      listError:
+        listStatus === "error" ? "Conversations could not load." : undefined,
+      threads: threadRows?.map(mapThread) ?? [],
+      threadStatus,
+      threadError:
+        threadStatus === "error" ? "This conversation could not load." : undefined,
+      selectedThread,
+      operations,
+    };
+  }, [
+    setupError,
+    inboxes,
+    teammateRows,
+    selectedInboxId,
+    selectedThreadId,
+    threadRows,
+    detailRow,
+    enriched,
+    operations,
+  ]);
+
+  const runMutation = useCallback(
+    async (
+      key: OperationKey,
+      mutate: () => Promise<unknown>,
+      options?: {
+        toastId?: string;
+        successToast?: { title: string; description?: string };
+        retry?: () => void;
+      },
+    ) => {
+      setOperation(key, "loading");
+      try {
+        await mutate();
+      } catch (error) {
+        setOperation(key, "error", "The change could not be saved.");
+        toast.error("The change could not be saved.", {
+          id: options?.toastId ?? `inbox-${key}`,
+          action: options?.retry
+            ? { label: "Retry", onClick: options.retry }
+            : undefined,
+        });
+        throw error;
+      }
+      setOperation(key, "success");
+      if (options?.successToast) {
+        toast.success(options.successToast.title, {
+          id: options?.toastId ?? `inbox-${key}`,
+          description: options.successToast.description,
+        });
+      }
+    },
+    [setOperation],
+  );
+
+  const controller = useMemo<InboxController>(() => {
+    const selectInbox = (inboxId: string) => {
+      setSelectedInboxId(inboxId);
+      setSelectedThreadId(null);
+    };
+
+    const selectThread = (threadId: string) => {
+      setSelectedThreadId(threadId);
+    };
+
+    const assignThread = async (threadId: string, teammateId: string) =>
+      runMutation(
+        "assign",
+        () =>
+          assignMutation({
+            threadId: threadId as Id<"threads">,
+            teammateId: teammateId as Id<"users">,
+          }),
+        {
+          toastId: TOAST_IDS.assign,
+          retry: () => void assignThread(threadId, teammateId).catch(() => undefined),
+        },
+      );
+
+    const setStatus = async (threadId: string, status: ThreadSummary["status"]) =>
+      runMutation(
+        "status",
+        () => setStatusMutation({ threadId: threadId as Id<"threads">, status }),
+        {
+          toastId: TOAST_IDS.status,
+          successToast:
+            status === "closed" ? { title: "Conversation marked Done." } : undefined,
+          retry: () => void setStatus(threadId, status).catch(() => undefined),
+        },
+      );
+
+    const setUnread = async (threadId: string, unread: boolean) => {
+      if (unread) {
+        toast.info("Marking as unread isn't available yet.", {
+          id: TOAST_IDS.unread,
+        });
+        return;
+      }
+      return runMutation(
+        "unread",
+        () => markRead({ threadId: threadId as Id<"threads"> }),
+        {
+          toastId: TOAST_IDS.unread,
+          retry: () => void setUnread(threadId, unread).catch(() => undefined),
+        },
+      );
+    };
+
+    const setPriority = async () => {
+      toast.info("Priority changes aren't available yet.", {
+        id: TOAST_IDS.priority,
+      });
+    };
+
+    const setLabels = async () => {
+      toast.info("Label editing isn't available yet.", { id: TOAST_IDS.labels });
+    };
+
+    const generateDraft = async (): Promise<string> => {
+      setOperation("draft", "error", "Copilot drafting isn't connected yet.");
+      throw new Error("Copilot drafting isn't connected yet.");
+    };
+
+    const sendReply = async (threadId: string, body: string) => {
+      setOperation("send", "loading");
+      try {
+        await sendReplyMutation({ threadId: threadId as Id<"threads">, body });
+      } catch (error) {
+        setOperation("send", "error", "Your reply could not be sent.");
+        toast.error("Your reply could not be sent.", {
+          id: TOAST_IDS.send,
+          description: "Your draft is preserved — try again.",
+        });
+        throw error;
+      }
+      setOperation("send", "success");
+      toast.success("Reply sent", {
+        id: TOAST_IDS.send,
+        description: "Conversation moved to Waiting.",
+      });
+    };
+
+    const retryLoad = async (scope: LoadScope) => {
+      // Queries are reactive and recover on their own; only the seeding
+      // step is imperative and needs an explicit retry.
+      if (scope === "screen") await runSetup();
+    };
+
+    return {
+      state,
+      selectInbox,
+      selectThread,
+      assignThread,
+      setStatus,
+      setUnread,
+      setPriority,
+      setLabels,
+      generateDraft,
+      sendReply,
+      retryLoad,
+    };
+  }, [
+    state,
+    runMutation,
+    assignMutation,
+    setStatusMutation,
+    sendReplyMutation,
+    markRead,
+    runSetup,
+    setOperation,
+  ]);
+
+  const railUser = currentUser
+    ? {
+        name: currentUser.name ?? currentUser.username ?? "Signed in",
+        imageUrl:
+          currentUser.authProvider === "google"
+            ? (currentUser.image ?? undefined)
+            : undefined,
+      }
+    : undefined;
+
+  return (
+    <InboxScreen
+      controller={controller}
+      currentUser={railUser}
+      onSignOut={() => void signOut()}
+    />
+  );
+}

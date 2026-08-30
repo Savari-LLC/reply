@@ -10,8 +10,6 @@ import {
 } from "./_generated/server";
 import { isSeedUser, seedDemo, WORKSPACE_SLUG } from "./seed";
 
-const DEFAULT_ACTOR = "maya";
-
 function displayName(user: Doc<"users">) {
   return user.name ?? user.username ?? "Teammate";
 }
@@ -31,27 +29,40 @@ async function getDemoWorkspace(ctx: QueryCtx): Promise<Doc<"workspaces"> | null
     .unique();
 }
 
-async function requireActor(
+async function requireUser(ctx: QueryCtx): Promise<Doc<"users">> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (identity === null) {
+    throw new Error("Sign in to use the test inbox");
+  }
+  const userId = ctx.db.normalizeId("users", identity.subject);
+  const user = userId === null ? null : await ctx.db.get("users", userId);
+  if (!user) {
+    throw new Error("Sign in to use the test inbox");
+  }
+  return user;
+}
+
+async function getMembership(
   ctx: QueryCtx,
   workspace: Doc<"workspaces">,
-  actor: string | undefined,
-): Promise<Doc<"users">> {
-  const username = actor ?? DEFAULT_ACTOR;
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_username", (q) => q.eq("username", username))
-    .unique();
-  if (!user || !isSeedUser(user)) {
-    throw new Error(`Unknown demo actor: ${username}`);
-  }
-  const membership = await ctx.db
+  user: Doc<"users">,
+): Promise<Doc<"memberships"> | null> {
+  return await ctx.db
     .query("memberships")
     .withIndex("by_workspaceId_and_userId", (q) =>
       q.eq("workspaceId", workspace._id).eq("userId", user._id),
     )
     .unique();
+}
+
+async function requireMember(
+  ctx: QueryCtx,
+  workspace: Doc<"workspaces">,
+): Promise<Doc<"users">> {
+  const user = await requireUser(ctx);
+  const membership = await getMembership(ctx, workspace, user);
   if (!membership) {
-    throw new Error(`Demo actor ${username} is not in the demo workspace`);
+    throw new Error("You are not a member of the demo workspace");
   }
   return user;
 }
@@ -120,22 +131,77 @@ async function threadSummary(
   };
 }
 
+async function joinDemoWorkspace(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  user: Doc<"users">,
+) {
+  const workspace = await ctx.db.get(workspaceId);
+  if (!workspace) throw new Error("Demo workspace is not seeded");
+  const membership = await getMembership(ctx, workspace, user);
+  if (membership) return;
+  await ctx.db.insert("memberships", {
+    workspaceId,
+    userId: user._id,
+    role: "member",
+  });
+  const workspaceInboxes = await ctx.db
+    .query("inboxes")
+    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+  for (const inbox of workspaceInboxes) {
+    await ctx.db.insert("inboxAccess", {
+      workspaceId,
+      inboxId: inbox._id,
+      userId: user._id,
+    });
+  }
+  // Mirror a seed teammate's read state so the demo unread story matches.
+  const memberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+  for (const member of memberships) {
+    const memberUser = await ctx.db.get(member.userId);
+    if (!memberUser || !isSeedUser(memberUser)) continue;
+    const reads = await ctx.db
+      .query("threadReads")
+      .withIndex("by_userId_and_workspaceId", (q) =>
+        q.eq("userId", memberUser._id).eq("workspaceId", workspaceId),
+      )
+      .collect();
+    for (const read of reads) {
+      await ctx.db.insert("threadReads", {
+        workspaceId: read.workspaceId,
+        inboxId: read.inboxId,
+        threadId: read.threadId,
+        userId: user._id,
+        lastReadAt: read.lastReadAt,
+      });
+    }
+    break;
+  }
+}
+
 export const ensureSeeded = mutation({
   args: {},
   handler: async (ctx) => {
     requireDemoEnabled();
+    const user = await requireUser(ctx);
     const result = await seedDemo(ctx, false);
+    await joinDemoWorkspace(ctx, result.workspaceId, user);
     return { workspaceId: result.workspaceId, seeded: result.seeded };
   },
 });
 
 export const listInboxes = query({
-  args: { actor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     requireDemoEnabled();
+    const user = await requireUser(ctx);
     const workspace = await getDemoWorkspace(ctx);
     if (!workspace) return null;
-    const actor = await requireActor(ctx, workspace, args.actor);
+    if (!(await getMembership(ctx, workspace, user))) return null;
     const inboxes = await ctx.db
       .query("inboxes")
       .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspace._id))
@@ -154,7 +220,7 @@ export const listInboxes = query({
           .collect();
         let unreadCount = 0;
         for (const thread of inboxThreads) {
-          if (await isUnread(ctx, actor._id, thread)) unreadCount += 1;
+          if (await isUnread(ctx, user._id, thread)) unreadCount += 1;
         }
         return {
           _id: inbox._id,
@@ -182,13 +248,13 @@ export const listThreads = query({
     status: v.optional(
       v.union(v.literal("open"), v.literal("waiting"), v.literal("closed")),
     ),
-    actor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     requireDemoEnabled();
+    const user = await requireUser(ctx);
     const workspace = await getDemoWorkspace(ctx);
     if (!workspace) return null;
-    const actor = await requireActor(ctx, workspace, args.actor);
+    if (!(await getMembership(ctx, workspace, user))) return null;
     let threads: Doc<"threads">[];
     if (args.inboxId !== undefined) {
       const inboxId = ctx.db.normalizeId("inboxes", args.inboxId);
@@ -215,18 +281,19 @@ export const listThreads = query({
       threads = threads.filter((thread) => thread.status === args.status);
     }
     return await Promise.all(
-      threads.map((thread) => threadSummary(ctx, actor._id, thread)),
+      threads.map((thread) => threadSummary(ctx, user._id, thread)),
     );
   },
 });
 
 export const getThread = query({
-  args: { threadId: v.string(), actor: v.optional(v.string()) },
+  args: { threadId: v.string() },
   handler: async (ctx, args) => {
     requireDemoEnabled();
+    const user = await requireUser(ctx);
     const workspace = await getDemoWorkspace(ctx);
     if (!workspace) return null;
-    const actor = await requireActor(ctx, workspace, args.actor);
+    if (!(await getMembership(ctx, workspace, user))) return null;
     const threadId = ctx.db.normalizeId("threads", args.threadId);
     if (!threadId) return null;
     const thread = await ctx.db.get(threadId);
@@ -244,7 +311,7 @@ export const getThread = query({
       )
       .unique();
     return {
-      ...(await threadSummary(ctx, actor._id, thread)),
+      ...(await threadSummary(ctx, user._id, thread)),
       inboxName: inbox?.name ?? "Unknown",
       companyProfile: companyProfile
         ? {
@@ -277,17 +344,17 @@ export const listTeammates = query({
   args: {},
   handler: async (ctx) => {
     requireDemoEnabled();
+    const user = await requireUser(ctx);
     const workspace = await getDemoWorkspace(ctx);
     if (!workspace) return null;
+    if (!(await getMembership(ctx, workspace, user))) return null;
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspace._id))
       .collect();
     const users = await Promise.all(memberships.map((m) => ctx.db.get(m.userId)));
-    return users.flatMap((user) =>
-      user && user.username
-        ? [{ _id: user._id, name: displayName(user), username: user.username }]
-        : [],
+    return users.flatMap((member) =>
+      member ? [{ _id: member._id, name: displayName(member) }] : [],
     );
   },
 });
@@ -318,12 +385,12 @@ async function markThreadRead(
 }
 
 export const markRead = mutation({
-  args: { threadId: v.id("threads"), actor: v.optional(v.string()) },
+  args: { threadId: v.id("threads") },
   handler: async (ctx, args) => {
     requireDemoEnabled();
     const { workspace, thread } = await requireDemoThread(ctx, args.threadId);
-    const actor = await requireActor(ctx, workspace, args.actor);
-    await markThreadRead(ctx, thread, actor._id);
+    const user = await requireMember(ctx, workspace);
+    await markThreadRead(ctx, thread, user._id);
     return null;
   },
 });
@@ -335,7 +402,8 @@ export const setStatus = mutation({
   },
   handler: async (ctx, args) => {
     requireDemoEnabled();
-    const { thread } = await requireDemoThread(ctx, args.threadId);
+    const { workspace, thread } = await requireDemoThread(ctx, args.threadId);
+    await requireMember(ctx, workspace);
     await ctx.db.patch(thread._id, { status: args.status });
     return null;
   },
@@ -349,6 +417,7 @@ export const assign = mutation({
   handler: async (ctx, args) => {
     requireDemoEnabled();
     const { workspace, thread } = await requireDemoThread(ctx, args.threadId);
+    await requireMember(ctx, workspace);
     if (args.teammateId !== null) {
       const membership = await ctx.db
         .query("memberships")
@@ -371,25 +440,24 @@ export const sendReply = mutation({
   args: {
     threadId: v.id("threads"),
     body: v.string(),
-    actor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     requireDemoEnabled();
     const body = args.body.trim();
     if (body.length === 0) throw new Error("Reply body cannot be empty");
     const { workspace, thread } = await requireDemoThread(ctx, args.threadId);
-    const actor = await requireActor(ctx, workspace, args.actor);
+    const user = await requireMember(ctx, workspace);
     const sentAt = Date.now();
     await ctx.db.insert("messages", {
       workspaceId: thread.workspaceId,
       threadId: thread._id,
       direction: "outbound",
-      authorId: actor._id,
+      authorId: user._id,
       body,
       sentAt,
     });
     await ctx.db.patch(thread._id, { status: "waiting", lastMessageAt: sentAt });
-    await markThreadRead(ctx, { ...thread, lastMessageAt: sentAt }, actor._id);
+    await markThreadRead(ctx, { ...thread, lastMessageAt: sentAt }, user._id);
     return null;
   },
 });
