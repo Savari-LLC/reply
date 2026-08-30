@@ -50,7 +50,6 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
     return {
       assign: (teammateId) => controller.assignThread(requireThread(), teammateId),
       setStatus: (status) => controller.setStatus(requireThread(), status),
-      setUnread: (unread) => controller.setUnread(requireThread(), unread),
       setPriority: (priority) => controller.setPriority(requireThread(), priority),
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
       generateDraft: (currentDraft) => controller.generateDraft(requireThread(), currentDraft),

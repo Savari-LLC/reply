@@ -23,7 +23,6 @@ import { ReplyComposer } from "./reply-composer";
 export type WorkspaceActions = {
   assign: (teammateId: string) => Promise<void>;
   setStatus: (status: ThreadStatus) => Promise<void>;
-  setUnread: (unread: boolean) => Promise<void>;
   setPriority: (priority: ThreadPriority) => Promise<void>;
   setLabels: (labelIds: string[]) => Promise<void>;
   generateDraft: (currentDraft?: string) => Promise<string>;

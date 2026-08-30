@@ -211,6 +211,7 @@ export function ConvexInboxPage() {
   const markRead = useMutation(api.inbox.markRead);
   const assignMutation = useMutation(api.inbox.assign);
   const setStatusMutation = useMutation(api.inbox.setStatus);
+  const setPriorityMutation = useMutation(api.inbox.setPriority);
   const sendReplyMutation = useMutation(api.inbox.sendReply);
   const addCommentMutation = useMutation(api.inbox.addComment);
   const generateCommentUploadUrl = useMutation(api.inbox.generateCommentUploadUrl);
@@ -429,28 +430,17 @@ export function ConvexInboxPage() {
         },
       );
 
-    const setUnread = async (threadId: string, unread: boolean) => {
-      if (unread) {
-        toast.info("Marking as unread isn't available yet.", {
-          id: TOAST_IDS.unread,
-        });
-        return;
-      }
-      return runMutation(
-        "unread",
-        () => markRead({ threadId: threadId as Id<"threads"> }),
+    const setPriority = async (threadId: string, priority: ThreadSummary["priority"]) =>
+      runMutation(
+        "priority",
+        () => setPriorityMutation({ threadId: threadId as Id<"threads">, priority }),
         {
-          toastId: TOAST_IDS.unread,
-          retry: () => void setUnread(threadId, unread).catch(() => undefined),
+          toastId: TOAST_IDS.priority,
+          successToast:
+            priority === "urgent" ? { title: "Marked as urgent." } : undefined,
+          retry: () => void setPriority(threadId, priority).catch(() => undefined),
         },
       );
-    };
-
-    const setPriority = async () => {
-      toast.info("Priority changes aren't available yet.", {
-        id: TOAST_IDS.priority,
-      });
-    };
 
     const setLabels = async () => {
       toast.info("Label editing isn't available yet.", { id: TOAST_IDS.labels });
@@ -561,7 +551,6 @@ export function ConvexInboxPage() {
       selectThread,
       assignThread,
       setStatus,
-      setUnread,
       setPriority,
       setLabels,
       generateDraft,
@@ -575,6 +564,7 @@ export function ConvexInboxPage() {
     runMutation,
     assignMutation,
     setStatusMutation,
+    setPriorityMutation,
     sendReplyMutation,
     addCommentMutation,
     generateCommentUploadUrl,

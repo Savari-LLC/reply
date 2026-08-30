@@ -261,12 +261,6 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
         retry: () => void setStatus(threadId, status).catch(() => undefined),
       });
 
-    const setUnread = async (threadId: string, unread: boolean) =>
-      runMutation("unread", () => updateThread(threadId, { unread }), {
-        toastId: TOAST_IDS.unread,
-        retry: () => void setUnread(threadId, unread).catch(() => undefined),
-      });
-
     const setPriority = async (threadId: string, priority: ThreadSummary["priority"]) =>
       runMutation("priority", () => updateThread(threadId, { priority }), {
         toastId: TOAST_IDS.priority,
@@ -404,7 +398,6 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       selectThread,
       assignThread,
       setStatus,
-      setUnread,
       setPriority,
       setLabels,
       generateDraft,

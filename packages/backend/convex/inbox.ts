@@ -451,6 +451,20 @@ export const setStatus = mutation({
   },
 });
 
+export const setPriority = mutation({
+  args: {
+    threadId: v.id("threads"),
+    priority: v.union(v.literal("normal"), v.literal("urgent")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const context = await requireWorkspaceContext(ctx);
+    const thread = await requireThread(ctx, context, args.threadId);
+    await ctx.db.patch(thread._id, { priority: args.priority });
+    return null;
+  },
+});
+
 export const assign = mutation({
   args: {
     threadId: v.id("threads"),

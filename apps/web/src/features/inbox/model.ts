@@ -17,7 +17,6 @@ export type InboxController = {
   selectThread: (threadId: string) => void;
   assignThread: (threadId: string, teammateId: string) => Promise<void>;
   setStatus: (threadId: string, status: ThreadStatus) => Promise<void>;
-  setUnread: (threadId: string, unread: boolean) => Promise<void>;
   setPriority: (threadId: string, priority: ThreadPriority) => Promise<void>;
   setLabels: (threadId: string, labels: string[]) => Promise<void>;
   /** Copilot draft; `currentDraft` is the operator's in-progress text to refine. */
