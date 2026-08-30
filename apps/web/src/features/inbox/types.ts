@@ -46,6 +46,8 @@ export type InboxSummary = {
   kind: "shared" | "personal";
   displayOrder: number;
   unreadCount: number;
+  /** Conversations still being worked (open + waiting); drives the Open badge. */
+  openCount: number;
   accent: LabelAccent;
   /** Whether any channel delivers into this inbox (drives empty-state hints). */
   hasChannel: boolean;

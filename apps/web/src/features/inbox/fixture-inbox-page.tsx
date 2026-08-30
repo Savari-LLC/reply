@@ -66,7 +66,7 @@ function initialState(): InboxScreenState {
     inboxes: [],
     teammates: [],
     selectedInboxId: null,
-    selectedView: "all",
+    selectedView: "open",
     selectedThreadId: null,
     listStatus: "idle",
     threads: [],
@@ -140,7 +140,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
   }, [scenario, shouldFail]);
 
   const loadList = useCallback(
-    async (inboxId: string, view: InboxView = "all") => {
+    async (inboxId: string, view: InboxView = "open") => {
       setState((prev) => ({ ...prev, listStatus: "loading", listError: undefined }));
       await delay(LOAD_DELAY_MS);
       if (scenario === "list-loading") return;
@@ -254,7 +254,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
   );
 
   const controller = useMemo<InboxController>(() => {
-    const selectInbox = (inboxId: string, view: InboxView = "all") => {
+    const selectInbox = (inboxId: string, view: InboxView = "open") => {
       setState((prev) => ({
         ...prev,
         selectedInboxId: inboxId,

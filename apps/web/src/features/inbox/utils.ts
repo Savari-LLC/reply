@@ -39,8 +39,10 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function filterThreads(threads: ThreadSummary[], filter: ThreadFilter): ThreadSummary[] {
-  if (filter === "all") return threads;
-  return threads.filter((thread) => thread.status === filter);
+  // "open" groups waiting with open; there is no separate Waiting tab.
+  return threads.filter((thread) =>
+    filter === "closed" ? thread.status === "closed" : thread.status !== "closed",
+  );
 }
 
 /** Deterministic avatar tints from the Figma avatar palette. */

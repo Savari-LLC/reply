@@ -6,8 +6,8 @@ import type {
   ThreadStatus,
 } from "./types";
 
-/** Thread-list filter tabs. `all` is UI-only; the rest map to backend statuses. */
-export const THREAD_FILTERS = ["all", "open", "waiting", "closed"] as const;
+/** Thread-list filter tabs. "open" covers open + waiting; "closed" shows Done. */
+export const THREAD_FILTERS = ["open", "closed"] as const;
 export type ThreadFilter = (typeof THREAD_FILTERS)[number];
 
 /** Backend `closed` is always displayed as "Done". */
@@ -18,13 +18,11 @@ export const STATUS_LABELS: Record<ThreadStatus, string> = {
 };
 
 export const FILTER_LABELS: Record<ThreadFilter, string> = {
-  all: "All",
   open: "Open",
-  waiting: "Waiting",
   closed: "Done",
 };
 
-/** Sidebar view labels; "all" renders as the inbox name itself. */
+/** Sidebar view labels; "all" is unused by the sidebar but kept for the model. */
 export const INBOX_VIEW_LABELS: Record<Exclude<InboxView, "all">, string> = {
   open: "Open",
   assigned: "Assigned",

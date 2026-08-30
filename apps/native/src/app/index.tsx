@@ -213,6 +213,7 @@ export default function InboxScreen() {
         renderItem={({ item, index }) => (
           <ThreadListRow
             thread={item}
+            index={index}
             first={index === 0}
             last={index === filtered.length - 1}
             onPress={() =>
@@ -277,11 +278,13 @@ function FilterBar({
 
 function ThreadListRow({
   thread,
+  index,
   first,
   last,
   onPress,
 }: {
   thread: ThreadRow;
+  index: number;
   first: boolean;
   last: boolean;
   onPress: () => void;
@@ -290,6 +293,7 @@ function ThreadListRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${thread.unread ? "Unread, " : ""}${thread.senderName}, ${thread.subject}`}
+      testID={`thread-row-${index}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
@@ -304,6 +308,7 @@ function ThreadListRow({
       <Avatar
         name={thread.senderName}
         imageUrl={thread.company?.logoUrl ?? undefined}
+        shape="logo"
         size={36}
         online
       />

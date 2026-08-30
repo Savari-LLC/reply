@@ -95,6 +95,7 @@ function mapInbox(row: InboxRow, index: number): InboxSummary {
     kind: row.kind,
     displayOrder: index,
     unreadCount: row.unreadCount,
+    openCount: row.openCount,
     accent:
       row.kind === "personal"
         ? "yellow"
@@ -204,7 +205,7 @@ export function ConvexInboxPage() {
   const switchWorkspace = useMutation(api.workspaces.switchTo);
   const createWorkspace = useMutation(api.workspaces.create);
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
-  const [selectedView, setSelectedView] = useState<InboxView>("all");
+  const [selectedView, setSelectedView] = useState<InboxView>("open");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   // Mentions and Sent span every accessible inbox, so they use the personal
   // query; the other views scope `listThreads` to the selected inbox.
@@ -418,7 +419,7 @@ export function ConvexInboxPage() {
   );
 
   const controller = useMemo<InboxController>(() => {
-    const selectInbox = (inboxId: string, view: InboxView = "all") => {
+    const selectInbox = (inboxId: string, view: InboxView = "open") => {
       setSelectedInboxId(inboxId);
       setSelectedView(view);
       setSelectedThreadId(null);
