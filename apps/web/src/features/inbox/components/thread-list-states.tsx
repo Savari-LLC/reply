@@ -1,5 +1,6 @@
 import { Button } from "@reply/ui/components/button";
-import { Inbox as InboxIcon, SearchX } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Cable, Inbox as InboxIcon, SearchX } from "lucide-react";
 
 import { ThreadRowSkeleton } from "./inbox-shell-skeleton";
 
@@ -24,7 +25,36 @@ export function ThreadListError({ onRetry }: { onRetry: () => Promise<void> }) {
   );
 }
 
-export function ThreadListEmptyInbox({ inboxName }: { inboxName: string }) {
+export function ThreadListEmptyInbox({
+  inboxName,
+  showConnectHint = false,
+}: {
+  inboxName: string;
+  /** Shown when the inbox has no channel delivering into it yet. */
+  showConnectHint?: boolean;
+}) {
+  if (showConnectHint) {
+    return (
+      <div className="flex flex-col items-center gap-1 px-4 py-12 text-center" role="status">
+        <span className="mb-2 flex size-12 items-center justify-center rounded-full bg-(--inbox-hover)">
+          <Cable className="size-5 text-(--inbox-text-muted)" aria-hidden />
+        </span>
+        <p className="text-sm font-medium tracking-[-0.1px] text-(--inbox-text-strong)">
+          No channel connected
+        </p>
+        <p className="text-xs tracking-[-0.1px] text-(--inbox-text-muted)">
+          Connect a channel to bring conversations into {inboxName}.
+        </p>
+        <Link
+          to="/settings"
+          search={{ section: "inboxes" }}
+          className="mt-3 flex h-8 items-center rounded-lg border border-(--inbox-border) bg-(--inbox-surface-elevated) px-3 text-sm font-medium tracking-[-0.1px] text-(--inbox-text) outline-none hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+        >
+          Connect a channel
+        </Link>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-1 px-4 py-12 text-center" role="status">
       <span className="mb-2 flex size-12 items-center justify-center rounded-full bg-(--inbox-hover)">

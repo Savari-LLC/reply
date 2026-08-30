@@ -16,6 +16,8 @@ export type ThreadListProps = {
   threads: ThreadSummary[];
   /** Whether the selected inbox has any threads before filtering. */
   hasAnyThreads: boolean;
+  /** True when the inbox has no channel; empty state offers to connect one. */
+  showConnectHint?: boolean;
   teammates: Teammate[];
   selectedThreadId: string | null;
   status: ListStatus;
@@ -84,7 +86,9 @@ function ThreadListBody(props: ThreadListProps) {
   if (props.status === "loading") return <ThreadListLoading />;
   if (props.status === "error") return <ThreadListError onRetry={props.onRetry} />;
   if (props.status === "empty" || !props.hasAnyThreads) {
-    return <ThreadListEmptyInbox inboxName={props.inboxName} />;
+    return (
+      <ThreadListEmptyInbox inboxName={props.inboxName} showConnectHint={props.showConnectHint} />
+    );
   }
   if (props.threads.length === 0) {
     return <ThreadListEmptyFilter onClearFilters={props.onClearFilters} />;

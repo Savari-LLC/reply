@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser, requireCurrentUser } from "./authHelpers";
+import { ensurePersonalInbox } from "./lib/access";
 import schema from "./schema";
 
 const currentWorkspaceValidator = v.object({
@@ -103,8 +104,9 @@ export const create = mutation({
       role: "admin",
     });
     for (const inboxName of ["Sales", "Accounts", "Support"]) {
-      await ctx.db.insert("inboxes", { workspaceId, name: inboxName });
+      await ctx.db.insert("inboxes", { workspaceId, name: inboxName, kind: "shared" });
     }
+    await ensurePersonalInbox(ctx, workspaceId, user._id);
     return workspaceId;
   },
 });

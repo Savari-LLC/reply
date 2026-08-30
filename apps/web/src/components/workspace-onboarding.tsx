@@ -23,9 +23,7 @@ import {
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message.replace(/^Uncaught (Error: )?/, "") : "Something went wrong. Please try again.";
-}
+import { errorMessage } from "@/lib/errors";
 
 function OnboardingShell({
   eyebrow,

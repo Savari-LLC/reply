@@ -80,6 +80,7 @@ export function InboxScreen({ controller, currentUser, onSignOut }: InboxScreenP
                 inboxName={selectedInbox?.name ?? "Inbox"}
                 threads={visibleThreads}
                 hasAnyThreads={state.threads.length > 0}
+                showConnectHint={selectedInbox ? !selectedInbox.hasChannel : false}
                 teammates={state.teammates}
                 selectedThreadId={state.selectedThreadId}
                 status={state.listStatus}

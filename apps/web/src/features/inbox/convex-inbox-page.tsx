@@ -26,10 +26,10 @@ import type {
 } from "./types";
 import { getInitials } from "./utils";
 
-type InboxRow = NonNullable<FunctionReturnType<typeof api.demo.listInboxes>>[number];
-type ThreadRow = NonNullable<FunctionReturnType<typeof api.demo.listThreads>>[number];
-type ThreadDetailRow = NonNullable<FunctionReturnType<typeof api.demo.getThread>>;
-type TeammateRow = NonNullable<FunctionReturnType<typeof api.demo.listTeammates>>[number];
+type InboxRow = NonNullable<FunctionReturnType<typeof api.inbox.listInboxes>>[number];
+type ThreadRow = NonNullable<FunctionReturnType<typeof api.inbox.listThreads>>[number];
+type ThreadDetailRow = NonNullable<FunctionReturnType<typeof api.inbox.getThread>>;
+type TeammateRow = NonNullable<FunctionReturnType<typeof api.inbox.listTeammates>>[number];
 
 /** Known inbox accents; unknown inboxes rotate through the fallback list. */
 const INBOX_ACCENTS: Record<string, LabelAccent> = {
@@ -56,9 +56,14 @@ function mapInbox(row: InboxRow, index: number): InboxSummary {
     id: row._id,
     name: row.name,
     slug,
+    kind: row.kind,
     displayOrder: index,
     unreadCount: row.unreadCount,
-    accent: INBOX_ACCENTS[slug] ?? FALLBACK_ACCENTS[index % FALLBACK_ACCENTS.length]!,
+    accent:
+      row.kind === "personal"
+        ? "yellow"
+        : (INBOX_ACCENTS[slug] ?? FALLBACK_ACCENTS[index % FALLBACK_ACCENTS.length]!),
+    hasChannel: row.channels.length > 0,
   };
 }
 
@@ -74,7 +79,7 @@ function mapTeammate(row: TeammateRow): Teammate {
 function mapThread(row: ThreadRow): ThreadSummary {
   return {
     id: row._id,
-    inboxId: row.inboxId,
+    inboxId: row.inboxId ?? "",
     customerName: row.senderName,
     customerEmail: row.senderEmail,
     subject: row.subject,
@@ -126,25 +131,25 @@ function mapStoredCompany(detail: ThreadDetailRow): CompanyProfile | undefined {
  */
 export function ConvexInboxPage() {
   const { signOut } = useAuthActions();
-  const currentUser = useQuery(api.users.getCurrent);
-  const inboxes = useQuery(api.demo.listInboxes, {});
-  const teammateRows = useQuery(api.demo.listTeammates, {});
+  const profile = useQuery(api.users.getProfile, {});
+  const inboxes = useQuery(api.inbox.listInboxes, {});
+  const teammateRows = useQuery(api.inbox.listTeammates, {});
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const threadRows = useQuery(
-    api.demo.listThreads,
-    selectedInboxId ? { inboxId: selectedInboxId } : "skip",
+    api.inbox.listThreads,
+    selectedInboxId ? { inboxId: selectedInboxId as Id<"inboxes"> } : "skip",
   );
   const detailRow = useQuery(
-    api.demo.getThread,
+    api.inbox.getThread,
     selectedThreadId ? { threadId: selectedThreadId } : "skip",
   );
 
-  const ensureSeeded = useMutation(api.demo.ensureSeeded);
-  const markRead = useMutation(api.demo.markRead);
-  const assignMutation = useMutation(api.demo.assign);
-  const setStatusMutation = useMutation(api.demo.setStatus);
-  const sendReplyMutation = useMutation(api.demo.sendReply);
+  const ensureSetup = useMutation(api.inbox.ensureSetup);
+  const markRead = useMutation(api.inbox.markRead);
+  const assignMutation = useMutation(api.inbox.assign);
+  const setStatusMutation = useMutation(api.inbox.setStatus);
+  const sendReplyMutation = useMutation(api.inbox.sendReply);
   const retrieveCompany = useAction(api.contextPreview.retrieveCompany);
 
   const [operations, setOperations] = useState(INITIAL_OPERATIONS);
@@ -155,29 +160,28 @@ export function ConvexInboxPage() {
     [],
   );
 
-  // First sign-in: seed the demo workspace and join it, then queries go live.
+  // First load: guarantee the member's personal inbox exists (idempotent).
   const [setupError, setSetupError] = useState<string | null>(null);
-  const seedingRef = useRef(false);
+  const setupRef = useRef(false);
   const runSetup = useCallback(async () => {
-    if (seedingRef.current) return;
-    seedingRef.current = true;
+    if (setupRef.current) return;
+    setupRef.current = true;
     setSetupError(null);
     try {
-      await ensureSeeded({});
+      await ensureSetup({});
     } catch (error) {
+      setupRef.current = false;
       setSetupError(
         error instanceof Error
           ? error.message
-          : "The demo workspace could not be prepared.",
+          : "Your workspace could not be prepared.",
       );
-    } finally {
-      seedingRef.current = false;
     }
-  }, [ensureSeeded]);
+  }, [ensureSetup]);
 
   useEffect(() => {
-    if (inboxes === null && setupError === null) void runSetup();
-  }, [inboxes, setupError, runSetup]);
+    void runSetup();
+  }, [runSetup]);
 
   // Default to the first inbox once the workspace loads.
   useEffect(() => {
@@ -441,14 +445,8 @@ export function ConvexInboxPage() {
     setOperation,
   ]);
 
-  const railUser = currentUser
-    ? {
-        name: currentUser.name ?? currentUser.username ?? "Signed in",
-        imageUrl:
-          currentUser.authProvider === "google"
-            ? (currentUser.image ?? undefined)
-            : undefined,
-      }
+  const railUser = profile
+    ? { name: profile.name, imageUrl: profile.imageUrl ?? undefined }
     : undefined;
 
   return (
