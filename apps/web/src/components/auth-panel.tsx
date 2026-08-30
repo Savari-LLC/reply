@@ -37,8 +37,8 @@ export function AuthPanel({ invited = false }: { invited?: boolean }) {
 
   return (
     <main className="grid min-h-svh bg-[#eef0ec] lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="relative hidden overflow-hidden bg-[#202d2a] p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="absolute -top-32 -right-28 size-96 rounded-full bg-[#ff7a66]/15 blur-3xl" />
+      <section className="relative hidden overflow-hidden bg-[#0d9488] bg-linear-to-br from-[#043f38] via-[#0b7268] to-[#0d9488] p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute -top-32 -right-28 size-96 rounded-full bg-[#2dd4bf]/25 blur-3xl" />
         <div className="absolute -bottom-32 -left-24 size-80 rounded-full bg-[#f7c95c]/10 blur-3xl" />
         <div className="relative">
           <ReplyLogoFull className="h-9 w-auto text-white" />
@@ -48,11 +48,11 @@ export function AuthPanel({ invited = false }: { invited?: boolean }) {
           <h1 className="text-5xl font-bold leading-[1.02] tracking-[-0.055em] xl:text-6xl">
             Turn context into a thoughtful reply.
           </h1>
-          <p className="mt-6 max-w-lg text-sm leading-7 text-white/60">
+          <p className="mt-6 max-w-lg text-sm leading-7 text-white/75">
             Bring the right company context into every conversation and move from research to a polished response without losing your voice.
           </p>
         </div>
-        <p className="relative text-xs text-white/35">Secure authentication powered by Convex Auth v2</p>
+        <p className="relative text-xs text-white/50">Secure authentication powered by Convex Auth v2</p>
       </section>
 
       <section className="flex items-center justify-center px-4 py-8 sm:px-8 lg:px-12">
