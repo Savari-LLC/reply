@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as contextPreview from "../contextPreview.js";
 import type * as healthCheck from "../healthCheck.js";
 
 import type {
@@ -19,6 +20,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  contextPreview: typeof contextPreview;
   healthCheck: typeof healthCheck;
 }>;
 

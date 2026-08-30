@@ -2,7 +2,7 @@
 
 Reply is the prepared base repository for a one-day hackathon build: a shared inbox concept for service businesses that will eventually combine collaborative email handling, company context, and AI-assisted drafting.
 
-This repository intentionally contains no product schema or feature implementation. The team can make those decisions together during the hackathon without first undoing speculative code.
+This repository intentionally contains no product schema or user-facing feature implementation. The team can make those decisions together during the hackathon without first undoing speculative code.
 
 ## Ready now
 
@@ -12,6 +12,7 @@ This repository intentionally contains no product schema or feature implementati
 - Convex Auth v2 alpha component and signing keys
 - Convex Agent and AI Gateway provider packages
 - Official Context.dev Convex component
+- Authenticated, schema-free Context.dev preview action with a mocked integration test
 - Shared shadcn package with the complete stable component set
 - Convex AI coding guidance and project skills
 - Polished starter status screen
@@ -24,7 +25,7 @@ This repository intentionally contains no product schema or feature implementati
 - Dummy inbox data
 - Shared inbox UI
 - Assignment, labels, drafts, and collaboration behavior
-- Context.dev enrichment action
+- Context.dev enrichment UI and persistence
 - AI Gateway prompting and draft action
 - Gmail or Outlook integration
 
@@ -66,6 +67,7 @@ apps/web/                    TanStack Start app and setup screen
 packages/backend/convex/     Empty schema, health check, mounted components
 packages/ui/                 Shared shadcn components and Reply design tokens
 docs/hackathon-plan.md       Build plan, demo path, and scope guardrails
+docs/context-dev.md          Seven approved Context APIs and smoke-test flow
 ```
 
 Read [`docs/hackathon-plan.md`](docs/hackathon-plan.md) before starting feature work.
