@@ -12,20 +12,17 @@ import {
 import { Separator } from "@reply/ui/components/separator";
 import { Skeleton } from "@reply/ui/components/skeleton";
 import { Textarea } from "@reply/ui/components/textarea";
+import { Spinner } from "@reply/ui/components/spinner";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Building2, Send, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { AuthPanel } from "../../components/auth-panel";
 import { statusStyles, timeAgo } from "../../lib/test-page";
 
-type SearchParams = { actor?: string };
-
 export const Route = createFileRoute("/test/$threadId")({
-  validateSearch: (search: Record<string, unknown>): SearchParams => ({
-    actor: typeof search.actor === "string" ? search.actor : undefined,
-  }),
   component: TestThreadPage,
   errorComponent: TestThreadError,
 });
@@ -46,9 +43,32 @@ function TestThreadError({ error }: { error: Error }) {
 const UNASSIGNED = "unassigned";
 
 function TestThreadPage() {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+
+  if (isLoading) {
+    return (
+      <main
+        className="flex min-h-svh items-center justify-center"
+        aria-live="polite"
+      >
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Spinner />
+          Restoring your session…
+        </div>
+      </main>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthPanel />;
+  }
+
+  return <TestThread />;
+}
+
+function TestThread() {
   const { threadId } = Route.useParams();
-  const { actor } = Route.useSearch();
-  const thread = useQuery(api.demo.getThread, { threadId, actor });
+  const thread = useQuery(api.demo.getThread, { threadId });
   const teammates = useQuery(api.demo.listTeammates);
   const markRead = useMutation(api.demo.markRead);
   const setStatus = useMutation(api.demo.setStatus);
@@ -60,9 +80,9 @@ function TestThreadPage() {
   const threadRealId = thread?._id;
   useEffect(() => {
     if (thread?.unread && threadRealId) {
-      markRead({ threadId: threadRealId, actor }).catch(() => {});
+      markRead({ threadId: threadRealId }).catch(() => {});
     }
-  }, [thread?.unread, threadRealId, actor, markRead]);
+  }, [thread?.unread, threadRealId, markRead]);
 
   if (thread === undefined) {
     return (
@@ -83,11 +103,7 @@ function TestThreadPage() {
           This conversation does not exist in the demo workspace. It may have
           been removed by a reseed.
         </p>
-        <Link
-          to="/test"
-          search={{ actor }}
-          className={buttonVariants({ variant: "outline" })}
-        >
+        <Link to="/test" className={buttonVariants({ variant: "outline" })}>
           Back to inbox
         </Link>
       </main>
@@ -105,7 +121,6 @@ function TestThreadPage() {
     <main className="mx-auto max-w-3xl p-4 sm:p-6">
       <Link
         to="/test"
-        search={{ actor }}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
@@ -254,7 +269,7 @@ function TestThreadPage() {
           if (!draft.trim()) return;
           setSending(true);
           try {
-            await sendReply({ threadId: thread._id, body: draft, actor });
+            await sendReply({ threadId: thread._id, body: draft });
             setDraft("");
             toast.success("Reply sent — thread moved to Waiting");
           } catch (error) {
