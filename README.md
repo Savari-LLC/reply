@@ -4,6 +4,24 @@ Reply is the prepared base repository for a one-day hackathon build: a shared in
 
 This repository intentionally contains no product schema or user-facing feature implementation. The team can make those decisions together during the hackathon without first undoing speculative code.
 
+## Problem
+
+## Solution
+
+## Target Users
+
+## Demo
+
+## Architecture
+
+## Convex usage
+
+## Context.dev usage
+
+## Devin usage
+
+## Pre-existing assets
+
 ## Ready now
 
 - Bun workspace and lockfile
@@ -42,11 +60,11 @@ The repository is already linked to the Savari `reply` Convex project. For a fre
 
 ## Context.dev key
 
-The development deployment currently has an explicit placeholder so the component can mount. Replace it before implementing the Context.dev action:
+The development deployment currently has an explicit placeholder so the component can mount. Replace it before running the Context.dev action against the live service:
 
 ```bash
 cd packages/backend
-bunx convex env set CONTEXT_DEV_API_KEY your_context_dev_key
+bunx --bun convex env set CONTEXT_DEV_API_KEY your_context_dev_key
 ```
 
 ## Commands
