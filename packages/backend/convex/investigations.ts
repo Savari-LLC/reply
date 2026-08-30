@@ -169,6 +169,30 @@ const progressFields = {
   completedAt: v.optional(v.number()),
 };
 
+/**
+ * Liveness check for the polling loop. Pollers stop when the investigation
+ * is gone, terminal, or now owned by a newer Devin session (after a retry),
+ * so a zombie poller can never clobber fresh state.
+ */
+export const getPollState = internalQuery({
+  args: { investigationId: v.id("investigations") },
+  returns: v.union(
+    v.object({
+      status: investigationStatusValidator,
+      devinSessionId: v.union(v.string(), v.null()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const investigation = await ctx.db.get(args.investigationId);
+    if (!investigation) return null;
+    return {
+      status: investigation.status,
+      devinSessionId: investigation.devinSessionId ?? null,
+    };
+  },
+});
+
 /** Progress writes from the Devin poller; only provided fields are patched. */
 export const applyProgress = internalMutation({
   args: { investigationId: v.id("investigations"), ...progressFields },
@@ -177,6 +201,13 @@ export const applyProgress = internalMutation({
     const { investigationId, ...fields } = args;
     const investigation = await ctx.db.get(investigationId);
     if (!investigation) return null;
+    // Never regress a terminal investigation (e.g. a late write racing a retry).
+    if (
+      (investigation.status === "completed" || investigation.status === "failed") &&
+      fields.status !== "completed"
+    ) {
+      return null;
+    }
     const patch = Object.fromEntries(
       Object.entries(fields).filter(([, value]) => value !== undefined),
     );
@@ -195,7 +226,8 @@ export const markFailed = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const investigation = await ctx.db.get(args.investigationId);
-    if (!investigation) return null;
+    // A finished investigation stays finished; never downgrade it to failed.
+    if (!investigation || investigation.status === "completed") return null;
     await ctx.db.patch(args.investigationId, {
       status: "failed",
       error: args.error,
@@ -204,6 +236,12 @@ export const markFailed = internalMutation({
     return null;
   },
 });
+
+/**
+ * A running investigation this old is considered stuck (dead poll chain or
+ * abandoned session) and may be retried by an operator.
+ */
+export const STALE_RUN_MS = 45 * 60 * 1000;
 
 /**
  * Retry a failed (or stuck) investigation for a thread the caller can access.
@@ -222,10 +260,11 @@ export const retry = mutation({
     if (!thread || !(await canAccessThread(ctx, context, thread))) {
       throw new Error("Investigation not found");
     }
-    if (
-      investigation.status !== "failed" &&
-      investigation.status !== "completed"
-    ) {
+    const terminal =
+      investigation.status === "failed" || investigation.status === "completed";
+    const startedAt = investigation.startedAt ?? investigation._creationTime;
+    const stuck = !terminal && Date.now() - startedAt > STALE_RUN_MS;
+    if (!terminal && !stuck) {
       throw new Error("This investigation is still running");
     }
     await ctx.db.patch(investigation._id, {

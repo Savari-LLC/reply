@@ -18,8 +18,9 @@ const CLASSIFY_MODEL = "openai/gpt-5.6-luna";
 /** Keep the prompt bounded even for very long inbound emails. */
 const MAX_BODY_CHARS = 6_000;
 
-/** One transient failure is retried once before giving up silently. */
+/** Transient failures are retried before giving up silently. */
 const RETRY_DELAY_MS = 5_000;
+const MAX_RETRIES = 2;
 
 const classificationSchema = z.object({
   category: z.enum([
@@ -103,7 +104,7 @@ export const classifyEmail = internalAction({
 
     if (!parsed) {
       const attempt = args.attempt ?? 0;
-      if (attempt < 1) {
+      if (attempt < MAX_RETRIES) {
         await ctx.scheduler.runAfter(RETRY_DELAY_MS, internal.triage.classifyEmail, {
           threadId: args.threadId,
           emailId: args.emailId,

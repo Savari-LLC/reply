@@ -281,6 +281,119 @@ describe("Devin session lifecycle", () => {
     ).rejects.toThrow(/repository URL/);
   });
 
+  test("markFailed never downgrades a completed investigation", async () => {
+    const t = makeTest();
+    const { workspaceId } = await setupWorkspace(t);
+    const { threadId, emailId } = await insertInboundEmail(t, workspaceId);
+    await t.mutation(internal.investigations.recordClassification, {
+      threadId,
+      emailId,
+      category: "technical",
+      confidence: 0.9,
+      shortSummary: "Customer reports that checkout fails after clicking Pay.",
+    });
+    const [investigation] = await getInvestigations(t, threadId);
+    await t.mutation(internal.investigations.applyProgress, {
+      investigationId: investigation!._id,
+      status: "completed",
+      completedAt: Date.now(),
+    });
+
+    await t.mutation(internal.investigations.markFailed, {
+      investigationId: investigation!._id,
+      error: { code: "investigation_failed", message: "late failure" },
+    });
+
+    const [after] = await getInvestigations(t, threadId);
+    expect(after!.status).toBe("completed");
+    expect(after!.error).toBeUndefined();
+    await t.finishAllScheduledFunctions(vi.fn());
+  });
+
+  test("applyProgress from a stale poller cannot regress a terminal investigation", async () => {
+    const t = makeTest();
+    const { workspaceId } = await setupWorkspace(t);
+    const { threadId, emailId } = await insertInboundEmail(t, workspaceId);
+    await t.mutation(internal.investigations.recordClassification, {
+      threadId,
+      emailId,
+      category: "technical",
+      confidence: 0.9,
+      shortSummary: "Customer reports that checkout fails after clicking Pay.",
+    });
+    const [investigation] = await getInvestigations(t, threadId);
+    await t.mutation(internal.investigations.applyProgress, {
+      investigationId: investigation!._id,
+      status: "completed",
+    });
+
+    await t.mutation(internal.investigations.applyProgress, {
+      investigationId: investigation!._id,
+      status: "testing",
+      currentStage: "testing",
+    });
+
+    const [after] = await getInvestigations(t, threadId);
+    expect(after!.status).toBe("completed");
+    await t.finishAllScheduledFunctions(vi.fn());
+  });
+
+  test("retry is allowed once a running investigation has gone stale", async () => {
+    const t = makeTest();
+    const { asUser, workspaceId } = await setupWorkspace(t);
+    const { threadId, emailId } = await insertInboundEmail(t, workspaceId);
+    await t.mutation(internal.investigations.recordClassification, {
+      threadId,
+      emailId,
+      category: "technical",
+      confidence: 0.9,
+      shortSummary: "Customer reports that checkout fails after clicking Pay.",
+    });
+    const [investigation] = await getInvestigations(t, threadId);
+
+    // Simulate a poll chain that died an hour ago mid-investigation.
+    await t.mutation(internal.investigations.applyProgress, {
+      investigationId: investigation!._id,
+      status: "investigating",
+      devinSessionId: "devin-stale",
+      startedAt: Date.now() - 60 * 60 * 1000,
+    });
+
+    await asUser.mutation(api.investigations.retry, {
+      investigationId: investigation!._id,
+    });
+    const [after] = await getInvestigations(t, threadId);
+    expect(after!.status).toBe("queued");
+    expect(after!.devinSessionId).toBeUndefined();
+    await t.finishAllScheduledFunctions(vi.fn());
+  });
+
+  test("retry is refused while an investigation is actively running", async () => {
+    const t = makeTest();
+    const { asUser, workspaceId } = await setupWorkspace(t);
+    const { threadId, emailId } = await insertInboundEmail(t, workspaceId);
+    await t.mutation(internal.investigations.recordClassification, {
+      threadId,
+      emailId,
+      category: "technical",
+      confidence: 0.9,
+      shortSummary: "Customer reports that checkout fails after clicking Pay.",
+    });
+    const [investigation] = await getInvestigations(t, threadId);
+    await t.mutation(internal.investigations.applyProgress, {
+      investigationId: investigation!._id,
+      status: "investigating",
+      startedAt: Date.now(),
+    });
+
+    await expect(
+      asUser.mutation(api.investigations.retry, {
+        investigationId: investigation!._id,
+      }),
+    ).rejects.toThrow(/still running/);
+    await t.finishAllScheduledFunctions(vi.fn());
+  });
+
   test("retry is refused for members of another workspace", async () => {
     const t = makeTest();
     const { workspaceId } = await setupWorkspace(t);
