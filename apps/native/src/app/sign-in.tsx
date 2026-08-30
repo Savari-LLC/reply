@@ -12,6 +12,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,

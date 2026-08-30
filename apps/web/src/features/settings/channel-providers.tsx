@@ -59,6 +59,7 @@ function TwilioSmsIcon(props: IconProps) {
 export type ChannelProviderMeta = {
   value: ChannelProvider;
   label: string;
+  availability: "available" | "coming-soon";
   /** What the account is identified by, which drives the input's semantics. */
   addressKind: "email" | "phone";
   blurb: string;
@@ -74,6 +75,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderMeta[] = [
   {
     value: "gmail",
     label: "Gmail",
+    availability: "available",
     addressKind: "email",
     blurb: "Google Workspace or personal",
     addressLabel: "Gmail address",
@@ -85,6 +87,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderMeta[] = [
   {
     value: "outlook",
     label: "Outlook",
+    availability: "coming-soon",
     addressKind: "email",
     blurb: "Microsoft 365 or Exchange",
     addressLabel: "Outlook address",
@@ -96,6 +99,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderMeta[] = [
   {
     value: "whatsapp",
     label: "WhatsApp",
+    availability: "available",
     addressKind: "phone",
     blurb: "WhatsApp Business number",
     addressLabel: "WhatsApp number",
@@ -107,6 +111,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderMeta[] = [
   {
     value: "sms",
     label: "SMS",
+    availability: "available",
     addressKind: "phone",
     blurb: "Text messaging via Twilio",
     addressLabel: "Phone number",
