@@ -11,6 +11,7 @@ import type {
   CommentDraft,
   CopilotMode,
   InboxScreenState,
+  InboxView,
   ThreadPriority,
   ThreadStatus,
 } from "./types";
@@ -19,7 +20,8 @@ export type LoadScope = "screen" | "list" | "thread";
 
 export type InboxController = {
   state: InboxScreenState;
-  selectInbox: (inboxId: string) => void;
+  /** Select an inbox, optionally scoped to a sidebar view (defaults to "all"). */
+  selectInbox: (inboxId: string, view?: InboxView) => void;
   selectThread: (threadId: string) => void;
   assignThread: (threadId: string, teammateId: string) => Promise<void>;
   setStatus: (threadId: string, status: ThreadStatus) => Promise<void>;
