@@ -29,7 +29,7 @@ type ReplyComposerProps = {
   commentState: OperationState;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
-  onGenerateDraft: () => Promise<string>;
+  onGenerateDraft: (currentDraft?: string) => Promise<string>;
   onSendReply: (body: string, bodyHtml?: string) => Promise<void>;
   /** Posts an internal comment (collapsed mode); never emailed. */
   onAddComment: (draft: CommentDraft) => Promise<void>;
@@ -125,21 +125,21 @@ export function ReplyComposer({
     setDraftFailed(false);
   };
 
-  const insertDraft = (draft: string, targetEditor: NonNullable<EmailEditorRef["editor"]>) => {
-    const html = draftToHtml(draft);
-    if (targetEditor.isEmpty) targetEditor.commands.setContent(html);
-    else targetEditor.commands.insertContentAt(targetEditor.state.doc.content.size, html);
-    setRichEmpty(false);
-  };
-
   const handleDraft = async () => {
     if (draftingRef.current) return;
     draftingRef.current = true;
     setDraftFailed(false);
     try {
-      const draft = await onGenerateDraft();
+      // Copilot reads the operator's in-progress text and returns the full
+      // refined reply, so the result replaces the editor contents.
+      const currentDraft = (await editorRef.current?.getEmailText())?.trim();
+      const draft = await onGenerateDraft(currentDraft || undefined);
       const target = editorRef.current?.editor;
-      if (target) insertDraft(draft, target);
+      if (target) {
+        target.commands.setContent(draftToHtml(draft));
+        target.commands.focus("end");
+        setRichEmpty(false);
+      }
     } catch {
       setDraftFailed(true);
     } finally {

@@ -1,7 +1,13 @@
 import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import {
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { requireWorkspaceContext, type WorkspaceContext } from "./authHelpers";
 import {
   canAccessInbox,
@@ -467,6 +473,94 @@ export const assign = mutation({
     }
     await ctx.db.patch(thread._id, { assigneeId: args.teammateId ?? undefined });
     return null;
+  },
+});
+
+/**
+ * Everything Copilot needs to draft a reply: the recent transcript, the
+ * Context.dev company profile, and who is replying. Access is re-derived from
+ * the caller's identity, so the action layer never trusts client arguments.
+ */
+export const getDraftContext = internalQuery({
+  args: { threadId: v.id("threads") },
+  returns: v.union(
+    v.object({
+      workspaceName: v.string(),
+      agentName: v.string(),
+      subject: v.string(),
+      senderName: v.string(),
+      senderEmail: v.string(),
+      company: v.union(
+        v.object({
+          name: v.string(),
+          description: v.union(v.string(), v.null()),
+          industry: v.union(v.string(), v.null()),
+          slogan: v.union(v.string(), v.null()),
+          location: v.union(v.string(), v.null()),
+          website: v.union(v.string(), v.null()),
+        }),
+        v.null(),
+      ),
+      messages: v.array(
+        v.object({
+          direction: v.union(v.literal("inbound"), v.literal("outbound")),
+          sender: v.string(),
+          sentAt: v.number(),
+          body: v.string(),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const context = await requireWorkspaceContext(ctx);
+    const thread = await ctx.db.get(args.threadId);
+    if (!thread || !(await canAccessThread(ctx, context, thread))) return null;
+    const recent = await ctx.db
+      .query("messages")
+      .withIndex("by_threadId_and_sentAt", (q) => q.eq("threadId", thread._id))
+      .order("desc")
+      .take(25);
+    const companyProfile = await ctx.db
+      .query("companyProfiles")
+      .withIndex("by_workspaceId_and_domain", (q) =>
+        q.eq("workspaceId", thread.workspaceId).eq("domain", thread.senderDomain),
+      )
+      .unique();
+    const messages = await Promise.all(
+      recent.reverse().map(async (message) => ({
+        direction: message.direction,
+        sender:
+          message.direction === "inbound"
+            ? (message.senderName ?? thread.senderName)
+            : await (async () => {
+                const author = message.authorId
+                  ? await ctx.db.get(message.authorId)
+                  : null;
+                return author ? displayName(author) : "Teammate";
+              })(),
+        sentAt: message.sentAt,
+        body: message.body,
+      })),
+    );
+    return {
+      workspaceName: context.workspace.name,
+      agentName: displayName(context.user),
+      subject: thread.subject,
+      senderName: thread.senderName,
+      senderEmail: thread.senderEmail,
+      company: companyProfile
+        ? {
+            name: companyProfile.name,
+            description: companyProfile.description ?? null,
+            industry: companyProfile.industry ?? null,
+            slogan: companyProfile.slogan ?? null,
+            location: companyProfile.location ?? null,
+            website: companyProfile.website ?? null,
+          }
+        : null,
+      messages,
+    };
   },
 });
 

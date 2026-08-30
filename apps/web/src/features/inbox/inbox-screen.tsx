@@ -53,7 +53,7 @@ export function InboxScreen({ controller, currentUser, onSignOut, viewers }: Inb
       setUnread: (unread) => controller.setUnread(requireThread(), unread),
       setPriority: (priority) => controller.setPriority(requireThread(), priority),
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
-      generateDraft: () => controller.generateDraft(requireThread()),
+      generateDraft: (currentDraft) => controller.generateDraft(requireThread(), currentDraft),
       sendReply: (body, bodyHtml) => controller.sendReply(requireThread(), body, bodyHtml),
       addComment: (draft) => controller.addComment(requireThread(), draft),
       retry: () => controller.retryLoad("thread"),

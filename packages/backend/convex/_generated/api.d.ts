@@ -13,6 +13,7 @@ import type * as authHelpers from "../authHelpers.js";
 import type * as channels from "../channels.js";
 import type * as companyContext from "../companyContext.js";
 import type * as contextPreview from "../contextPreview.js";
+import type * as copilot from "../copilot.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as inbox from "../inbox.js";
 import type * as inboxes from "../inboxes.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   channels: typeof channels;
   companyContext: typeof companyContext;
   contextPreview: typeof contextPreview;
+  copilot: typeof copilot;
   healthCheck: typeof healthCheck;
   inbox: typeof inbox;
   inboxes: typeof inboxes;
