@@ -1,0 +1,28 @@
+/**
+ * Integration seam between the inbox UI and any data source.
+ *
+ * `fixture-inbox-page.tsx` implements this contract with seeded local data;
+ * the integration developer later adds `convex-inbox-page.tsx` implementing
+ * the same interface. Keep this module free of React, Convex, Sonner, and
+ * fixture imports.
+ */
+
+import type { InboxScreenState, ThreadPriority, ThreadStatus } from "./types";
+
+export type LoadScope = "screen" | "list" | "thread";
+
+export type InboxController = {
+  state: InboxScreenState;
+  selectInbox: (inboxId: string) => void;
+  selectThread: (threadId: string) => void;
+  assignThread: (threadId: string, teammateId: string) => Promise<void>;
+  setStatus: (threadId: string, status: ThreadStatus) => Promise<void>;
+  setUnread: (threadId: string, unread: boolean) => Promise<void>;
+  setPriority: (threadId: string, priority: ThreadPriority) => Promise<void>;
+  setLabels: (threadId: string, labels: string[]) => Promise<void>;
+  generateDraft: (threadId: string) => Promise<string>;
+  sendReply: (threadId: string, body: string) => Promise<void>;
+  retryLoad: (scope: LoadScope) => Promise<void>;
+};
+
+export type * from "./types";
