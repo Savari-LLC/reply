@@ -150,13 +150,11 @@ export default function SignInScreen() {
           >
             <View style={styles.hero}>
               <View style={styles.logoRow}>
-                <View style={styles.logoMark}>
-                  <SymbolView
-                    name="bubble.left.fill"
-                    size={20}
-                    tintColor="#ffffff"
-                  />
-                </View>
+                <Image
+                  source={require("../../assets/images/brand/logo-mark.png")}
+                  style={styles.logoMark}
+                  accessibilityIgnoresInvertColors
+                />
                 <Text style={styles.wordmark}>reply</Text>
               </View>
               <Text style={styles.kicker}>Your focused communication workspace</Text>
@@ -317,10 +315,6 @@ const styles = StyleSheet.create({
   logoMark: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: colors.brandCoral,
-    alignItems: "center",
-    justifyContent: "center",
   },
   wordmark: {
     color: "#ffffff",

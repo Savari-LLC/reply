@@ -8,14 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@reply/ui/components/dropdown-menu";
 import { Link } from "@tanstack/react-router";
-import {
-  Calendar,
-  Inbox as InboxIcon,
-  LogOut,
-  PanelLeft,
-  Settings,
-  UserPen,
-} from "lucide-react";
+import { Inbox as InboxIcon, LogOut, PanelLeft, Settings, UserPen } from "lucide-react";
 import { useState } from "react";
 
 import { ProfileDialog } from "@/features/profile/profile-dialog";
@@ -27,11 +20,10 @@ export type RailSection = "inbox" | "settings";
 const RAIL_ICONS: Array<{
   label: string;
   Icon: typeof InboxIcon;
-  section?: RailSection;
-  to?: "/inbox" | "/settings";
+  section: RailSection;
+  to: "/inbox" | "/settings";
 }> = [
   { label: "Inbox", Icon: InboxIcon, section: "inbox", to: "/inbox" },
-  { label: "Calendar", Icon: Calendar },
   { label: "Settings", Icon: Settings, section: "settings", to: "/settings" },
 ];
 
@@ -46,6 +38,10 @@ type SidebarRailProps = {
   onSignOut?: () => void;
   /** Which rail destination is active; defaults to the inbox. */
   activeSection?: RailSection;
+  /** Collapses/expands the adjacent nav panel; omitted where there is none. */
+  onToggleNav?: () => void;
+  /** Whether the adjacent nav panel is currently collapsed. */
+  navCollapsed?: boolean;
 };
 
 function RailAvatar({ user }: { user?: RailUser }) {
@@ -74,44 +70,55 @@ function RailAvatar({ user }: { user?: RailUser }) {
 }
 
 /** 48px utility rail: logo slot, icon group, spacer, and the current-user avatar. */
-export function SidebarRail({ user, onSignOut, activeSection = "inbox" }: SidebarRailProps) {
+export function SidebarRail({
+  user,
+  onSignOut,
+  activeSection = "inbox",
+  onToggleNav,
+  navCollapsed = false,
+}: SidebarRailProps) {
   const accountLabel = user ? `Signed in as ${user.name}` : "Signed in";
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <div className="flex w-12 shrink-0 flex-col items-center border-r border-(--inbox-border-subtle) bg-(--inbox-nav)">
       <div className="flex items-center justify-center py-3">
-        <span className="flex size-8 items-center justify-center rounded-lg text-(--inbox-text-subtle)">
-          <PanelLeft className="size-4" aria-hidden />
-        </span>
+        {onToggleNav ? (
+          <button
+            type="button"
+            onClick={onToggleNav}
+            aria-expanded={!navCollapsed}
+            aria-label={navCollapsed ? "Show sidebar" : "Hide sidebar"}
+            title={navCollapsed ? "Show sidebar" : "Hide sidebar"}
+            className="flex size-8 items-center justify-center rounded-lg text-(--inbox-text-subtle) outline-none hover:bg-(--inbox-hover) hover:text-(--inbox-text) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
+          >
+            <PanelLeft className="size-4" aria-hidden />
+          </button>
+        ) : (
+          <span className="flex size-8 items-center justify-center rounded-lg text-(--inbox-text-subtle)">
+            <PanelLeft className="size-4" aria-hidden />
+          </span>
+        )}
       </div>
       <div className="flex flex-col gap-1.5 p-2">
         {RAIL_ICONS.map(({ label, Icon, section, to }) => {
-          const active = section !== undefined && section === activeSection;
+          const active = section === activeSection;
           const className = `flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--inbox-primary) ${
             active
               ? "bg-(--inbox-action-secondary-hover) text-(--inbox-text)"
               : "text-(--inbox-text-subtle)"
           }`;
-          if (to) {
-            return (
-              <Link
-                key={label}
-                to={to}
-                title={label}
-                aria-current={active ? "page" : undefined}
-                className={`${className} hover:bg-(--inbox-hover) hover:text-(--inbox-text)`}
-              >
-                <Icon className="size-4" aria-hidden />
-                <span className="sr-only">{label}</span>
-              </Link>
-            );
-          }
           return (
-            <span key={label} title={`${label} (coming soon)`} className={className}>
+            <Link
+              key={label}
+              to={to}
+              title={label}
+              aria-current={active ? "page" : undefined}
+              className={`${className} hover:bg-(--inbox-hover) hover:text-(--inbox-text)`}
+            >
               <Icon className="size-4" aria-hidden />
-              <span className="sr-only">{label} (coming soon)</span>
-            </span>
+              <span className="sr-only">{label}</span>
+            </Link>
           );
         })}
       </div>

@@ -15,8 +15,6 @@ import {
   CircleCheck,
   EllipsisVertical,
   Inbox,
-  Mail,
-  MailOpen,
   PanelRight,
   TriangleAlert,
 } from "lucide-react";
@@ -55,7 +53,7 @@ export type ConversationHeaderProps = {
   operations: Record<OperationKey, OperationState>;
   actions: Pick<
     WorkspaceActions,
-    "assign" | "setStatus" | "setUnread" | "setPriority" | "setLabels"
+    "assign" | "setStatus" | "setPriority" | "setLabels"
   >;
   panelOpen: boolean;
   onTogglePanel: () => void;
@@ -85,7 +83,7 @@ export function ConversationHeader({
   const isUrgent = thread.priority === "urgent";
   const loading = (key: OperationKey) => operations[key].status === "loading";
   const overflowBusy =
-    loading("priority") || loading("unread") || loading("labels") || loading("status");
+    loading("priority") || loading("labels") || loading("status");
 
   const toggleLabel = (labelId: string, checked: boolean) => {
     const ids = thread.labels.map((label) => label.id);
@@ -142,17 +140,6 @@ export function ConversationHeader({
                   aria-hidden
                 />
                 {isUrgent ? "Remove urgent" : "Mark urgent"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className={MENU_ITEM}
-                onClick={() => void actions.setUnread(!thread.unread)}
-              >
-                {thread.unread ? (
-                  <MailOpen className="size-4 text-(--inbox-text-subtle)" aria-hidden />
-                ) : (
-                  <Mail className="size-4 text-(--inbox-text-subtle)" aria-hidden />
-                )}
-                {thread.unread ? "Mark as read" : "Mark as unread"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {/* GroupLabel needs a Group ancestor; Base UI throws without one. */}

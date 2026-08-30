@@ -28,10 +28,10 @@ export const FIXTURE_TEAMMATES: Teammate[] = [
 ];
 
 export const FIXTURE_INBOXES: InboxSummary[] = [
-  { id: "inbox-personal", name: "Your inbox", slug: "your-inbox", kind: "personal", displayOrder: 0, unreadCount: 0, accent: "yellow", hasChannel: false },
-  { id: "inbox-sales", name: "Sales", slug: "sales", kind: "shared", displayOrder: 1, unreadCount: 3, accent: "purple", hasChannel: true },
-  { id: "inbox-accounts", name: "Accounts", slug: "accounts", kind: "shared", displayOrder: 2, unreadCount: 1, accent: "blue", hasChannel: true },
-  { id: "inbox-support", name: "Support", slug: "support", kind: "shared", displayOrder: 3, unreadCount: 2, accent: "magenta", hasChannel: true },
+  { id: "inbox-personal", name: "Your inbox", slug: "your-inbox", kind: "personal", displayOrder: 0, unreadCount: 0, openCount: 0, accent: "yellow", hasChannel: false },
+  { id: "inbox-sales", name: "Sales", slug: "sales", kind: "shared", displayOrder: 1, unreadCount: 3, openCount: 3, accent: "purple", hasChannel: true },
+  { id: "inbox-accounts", name: "Accounts", slug: "accounts", kind: "shared", displayOrder: 2, unreadCount: 1, openCount: 2, accent: "blue", hasChannel: true },
+  { id: "inbox-support", name: "Support", slug: "support", kind: "shared", displayOrder: 3, unreadCount: 2, openCount: 2, accent: "magenta", hasChannel: true },
 ];
 
 const label = (id: string, name: string, accent: ThreadLabel["accent"]): ThreadLabel => ({ id, name, accent });

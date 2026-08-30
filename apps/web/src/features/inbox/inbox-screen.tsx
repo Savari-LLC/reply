@@ -39,7 +39,9 @@ export function InboxScreen({
   workspace,
 }: InboxScreenProps) {
   const { state } = controller;
-  const [filter, setFilter] = useState<ThreadFilter>("all");
+  // Done views land on the Done tab; everything else starts on Open.
+  const defaultFilter: ThreadFilter = state.selectedView === "done" ? "closed" : "open";
+  const [filter, setFilter] = useState<ThreadFilter>(defaultFilter);
   // Incremented on deliberate keyboard selection so the workspace moves focus
   // to the conversation heading once the thread is ready (F5).
   const [headingFocusToken, setHeadingFocusToken] = useState(0);
@@ -52,7 +54,7 @@ export function InboxScreen({
   // Changing inbox or sidebar view resets the status tabs so a stale tab
   // never hides the freshly scoped list.
   useEffect(() => {
-    setFilter("all");
+    setFilter(state.selectedView === "done" ? "closed" : "open");
   }, [state.selectedInboxId, state.selectedView]);
 
   const selectedInbox = state.inboxes.find((inbox) => inbox.id === state.selectedInboxId) ?? null;
@@ -76,7 +78,6 @@ export function InboxScreen({
     return {
       assign: (teammateId) => controller.assignThread(requireThread(), teammateId),
       setStatus: (status) => controller.setStatus(requireThread(), status),
-      setUnread: (unread) => controller.setUnread(requireThread(), unread),
       setPriority: (priority) => controller.setPriority(requireThread(), priority),
       setLabels: (labelIds) => controller.setLabels(requireThread(), labelIds),
       generateDraft: (currentDraft, mode) =>
@@ -124,7 +125,7 @@ export function InboxScreen({
                 filter={filter}
                 onFilterChange={setFilter}
                 onSelectThread={handleSelectThread}
-                onClearFilters={() => setFilter("all")}
+                onClearFilters={() => setFilter(defaultFilter)}
                 onRetry={() => controller.retryLoad("list")}
                 onSimulateEmail={
                   state.selectedInboxId && !isWorkspaceView

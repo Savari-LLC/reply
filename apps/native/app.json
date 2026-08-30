@@ -8,7 +8,6 @@
     "scheme": "reply",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "io.savari.reply",
       "supportsTablet": false
     },

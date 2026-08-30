@@ -95,6 +95,7 @@ function mapInbox(row: InboxRow, index: number): InboxSummary {
     kind: row.kind,
     displayOrder: index,
     unreadCount: row.unreadCount,
+    openCount: row.openCount,
     accent:
       row.kind === "personal"
         ? "yellow"
@@ -204,7 +205,7 @@ export function ConvexInboxPage() {
   const switchWorkspace = useMutation(api.workspaces.switchTo);
   const createWorkspace = useMutation(api.workspaces.create);
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
-  const [selectedView, setSelectedView] = useState<InboxView>("all");
+  const [selectedView, setSelectedView] = useState<InboxView>("open");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   // Mentions and Sent span every accessible inbox, so they use the personal
   // query; the other views scope `listThreads` to the selected inbox.
@@ -232,6 +233,7 @@ export function ConvexInboxPage() {
   const markRead = useMutation(api.inbox.markRead);
   const assignMutation = useMutation(api.inbox.assign);
   const setStatusMutation = useMutation(api.inbox.setStatus);
+  const setPriorityMutation = useMutation(api.inbox.setPriority);
   const sendReplyMutation = useMutation(api.inbox.sendReply);
   const addCommentMutation = useMutation(api.inbox.addComment);
   const generateCommentUploadUrl = useMutation(api.inbox.generateCommentUploadUrl);
@@ -417,7 +419,7 @@ export function ConvexInboxPage() {
   );
 
   const controller = useMemo<InboxController>(() => {
-    const selectInbox = (inboxId: string, view: InboxView = "all") => {
+    const selectInbox = (inboxId: string, view: InboxView = "open") => {
       setSelectedInboxId(inboxId);
       setSelectedView(view);
       setSelectedThreadId(null);
@@ -453,28 +455,17 @@ export function ConvexInboxPage() {
         },
       );
 
-    const setUnread = async (threadId: string, unread: boolean) => {
-      if (unread) {
-        toast.info("Marking as unread isn't available yet.", {
-          id: TOAST_IDS.unread,
-        });
-        return;
-      }
-      return runMutation(
-        "unread",
-        () => markRead({ threadId: threadId as Id<"threads"> }),
+    const setPriority = async (threadId: string, priority: ThreadSummary["priority"]) =>
+      runMutation(
+        "priority",
+        () => setPriorityMutation({ threadId: threadId as Id<"threads">, priority }),
         {
-          toastId: TOAST_IDS.unread,
-          retry: () => void setUnread(threadId, unread).catch(() => undefined),
+          toastId: TOAST_IDS.priority,
+          successToast:
+            priority === "urgent" ? { title: "Marked as urgent." } : undefined,
+          retry: () => void setPriority(threadId, priority).catch(() => undefined),
         },
       );
-    };
-
-    const setPriority = async () => {
-      toast.info("Priority changes aren't available yet.", {
-        id: TOAST_IDS.priority,
-      });
-    };
 
     const setLabels = async () => {
       toast.info("Label editing isn't available yet.", { id: TOAST_IDS.labels });
@@ -588,7 +579,6 @@ export function ConvexInboxPage() {
       selectThread,
       assignThread,
       setStatus,
-      setUnread,
       setPriority,
       setLabels,
       generateDraft,
@@ -602,6 +592,7 @@ export function ConvexInboxPage() {
     runMutation,
     assignMutation,
     setStatusMutation,
+    setPriorityMutation,
     sendReplyMutation,
     addCommentMutation,
     generateCommentUploadUrl,

@@ -20,12 +20,11 @@ export type LoadScope = "screen" | "list" | "thread";
 
 export type InboxController = {
   state: InboxScreenState;
-  /** Select an inbox, optionally scoped to a sidebar view (defaults to "all"). */
+  /** Select an inbox, optionally scoped to a sidebar view (defaults to "open"). */
   selectInbox: (inboxId: string, view?: InboxView) => void;
   selectThread: (threadId: string) => void;
   assignThread: (threadId: string, teammateId: string) => Promise<void>;
   setStatus: (threadId: string, status: ThreadStatus) => Promise<void>;
-  setUnread: (threadId: string, unread: boolean) => Promise<void>;
   setPriority: (threadId: string, priority: ThreadPriority) => Promise<void>;
   setLabels: (threadId: string, labels: string[]) => Promise<void>;
   /**

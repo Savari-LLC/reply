@@ -1,5 +1,5 @@
 import { Spinner } from "@reply/ui/components/spinner";
-import { ListFilter, MailPlus } from "lucide-react";
+import { MailPlus } from "lucide-react";
 
 import { FILTER_LABELS, THREAD_FILTERS, type ThreadFilter } from "../constants";
 import type { ListStatus, OperationState, Teammate, ThreadSummary } from "../types";
@@ -74,13 +74,6 @@ export function ThreadList(props: ThreadListProps) {
               <span className="sr-only"> an incoming email</span>
             </button>
           ) : null}
-          <button
-            type="button"
-            aria-label="Filter conversations"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--inbox-text) outline-none hover:bg-(--inbox-hover) focus-visible:ring-2 focus-visible:ring-(--inbox-primary)"
-          >
-            <ListFilter className="size-4" aria-hidden />
-          </button>
         </div>
         <div role="tablist" aria-label="Filter conversations" className="flex gap-1">
           {THREAD_FILTERS.map((tab) => (

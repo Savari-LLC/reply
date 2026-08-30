@@ -66,7 +66,7 @@ function initialState(): InboxScreenState {
     inboxes: [],
     teammates: [],
     selectedInboxId: null,
-    selectedView: "all",
+    selectedView: "open",
     selectedThreadId: null,
     listStatus: "idle",
     threads: [],
@@ -140,7 +140,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
   }, [scenario, shouldFail]);
 
   const loadList = useCallback(
-    async (inboxId: string, view: InboxView = "all") => {
+    async (inboxId: string, view: InboxView = "open") => {
       setState((prev) => ({ ...prev, listStatus: "loading", listError: undefined }));
       await delay(LOAD_DELAY_MS);
       if (scenario === "list-loading") return;
@@ -254,7 +254,7 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
   );
 
   const controller = useMemo<InboxController>(() => {
-    const selectInbox = (inboxId: string, view: InboxView = "all") => {
+    const selectInbox = (inboxId: string, view: InboxView = "open") => {
       setState((prev) => ({
         ...prev,
         selectedInboxId: inboxId,
@@ -282,12 +282,6 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
         successToast:
           status === "closed" ? { title: "Conversation marked Done." } : undefined,
         retry: () => void setStatus(threadId, status).catch(() => undefined),
-      });
-
-    const setUnread = async (threadId: string, unread: boolean) =>
-      runMutation("unread", () => updateThread(threadId, { unread }), {
-        toastId: TOAST_IDS.unread,
-        retry: () => void setUnread(threadId, unread).catch(() => undefined),
       });
 
     const setPriority = async (threadId: string, priority: ThreadSummary["priority"]) =>
@@ -433,7 +427,6 @@ export function FixtureInboxPage({ scenario = "ready" }: FixtureInboxPageProps) 
       selectThread,
       assignThread,
       setStatus,
-      setUnread,
       setPriority,
       setLabels,
       generateDraft,
