@@ -8,9 +8,13 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
-import { seedDemo, WORKSPACE_SLUG } from "./seed";
+import { isSeedUser, seedDemo, WORKSPACE_SLUG } from "./seed";
 
 const DEFAULT_ACTOR = "maya";
+
+function displayName(user: Doc<"users">) {
+  return user.name ?? user.username ?? "Teammate";
+}
 
 function requireDemoEnabled() {
   if (env.ALLOW_DEMO_TEST_PAGE !== "true") {
@@ -37,7 +41,7 @@ async function requireActor(
     .query("users")
     .withIndex("by_username", (q) => q.eq("username", username))
     .unique();
-  if (!user || !user.tokenIdentifier.startsWith("seed|")) {
+  if (!user || !isSeedUser(user)) {
     throw new Error(`Unknown demo actor: ${username}`);
   }
   const membership = await ctx.db
@@ -108,7 +112,9 @@ async function threadSummary(
     senderDomain: thread.senderDomain,
     lastMessageAt: thread.lastMessageAt,
     preview: lastMessage ? lastMessage.body.slice(0, 140) : "",
-    assignee: assignee ? { _id: assignee._id, name: assignee.name } : null,
+    assignee: assignee
+      ? { _id: assignee._id, name: displayName(assignee) }
+      : null,
     labels,
     unread: await isUnread(ctx, actorId, thread),
   };
@@ -256,9 +262,11 @@ export const getThread = query({
           body: message.body,
           sentAt: message.sentAt,
           senderName: message.senderName ?? null,
-          author: message.authorId
-            ? ((await ctx.db.get(message.authorId))?.name ?? null)
-            : null,
+          author: await (async () => {
+            if (!message.authorId) return null;
+            const author = await ctx.db.get(message.authorId);
+            return author ? displayName(author) : null;
+          })(),
         })),
       ),
     };
@@ -277,7 +285,9 @@ export const listTeammates = query({
       .collect();
     const users = await Promise.all(memberships.map((m) => ctx.db.get(m.userId)));
     return users.flatMap((user) =>
-      user ? [{ _id: user._id, name: user.name, username: user.username }] : [],
+      user && user.username
+        ? [{ _id: user._id, name: displayName(user), username: user.username }]
+        : [],
     );
   },
 });

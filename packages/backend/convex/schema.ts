@@ -2,16 +2,28 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  // App-owned people, created by Auth v2 callbacks. tokenIdentifier is the
-  // canonical stable link to the authenticated identity.
-  users: defineTable({
-    tokenIdentifier: v.string(),
-    username: v.string(),
-    name: v.string(),
-    email: v.optional(v.string()),
-    image: v.optional(v.string()),
-  })
-    .index("by_tokenIdentifier", ["tokenIdentifier"])
+  // App-owned people created by Auth v2 callbacks. The auth core maps each
+  // provider account to the resulting app user ID used by authenticated calls.
+  users: defineTable(
+    v.union(
+      v.object({
+        authProvider: v.literal("password"),
+        providerAccountId: v.optional(v.string()),
+        username: v.string(),
+        name: v.optional(v.string()),
+      }),
+      v.object({
+        authProvider: v.literal("google"),
+        providerAccountId: v.optional(v.string()),
+        username: v.optional(v.string()),
+        name: v.optional(v.string()),
+        email: v.optional(v.string()),
+        image: v.optional(v.string()),
+        picture: v.optional(v.string()),
+      }),
+    ),
+  )
+    .index("by_authProvider_and_providerAccountId", ["authProvider", "providerAccountId"])
     .index("by_username", ["username"]),
 
   workspaces: defineTable({

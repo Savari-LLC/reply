@@ -55,10 +55,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 function RootDocument() {
   const { convexQueryClient } = Route.useRouteContext();
   return (
-    <ConvexAuthProvider
-      client={convexQueryClient.convexClient}
-      api={{ refreshSession: api.auth.refreshSession, signOut: api.auth.signOut }}
-    >
+    <ConvexAuthProvider client={convexQueryClient.convexClient} api={api.auth}>
       <html lang="en">
         <head>
           <HeadContent />

@@ -13,6 +13,7 @@ import type * as contextPreview from "../contextPreview.js";
 import type * as demo from "../demo.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as seed from "../seed.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   demo: typeof demo;
   healthCheck: typeof healthCheck;
   seed: typeof seed;
+  users: typeof users;
 }>;
 
 /**
@@ -56,8 +58,9 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   auth: import("@convex-dev/auth/core/_generated/component.js").ComponentApi<"auth">;
-  authPasskey: import("@convex-dev/auth/providers/passkey/_generated/component.js").ComponentApi<"authPasskey">;
+  authPasswordProvider: import("@convex-dev/auth/providers/password/_generated/component.js").ComponentApi<"authPasswordProvider">;
   authUsername: import("@convex-dev/auth/username/_generated/component.js").ComponentApi<"authUsername">;
+  oauthGoogle: import("@convex-dev/auth/providers/oauth/_generated/component.js").ComponentApi<"oauthGoogle">;
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
   contextDev: import("@context-dot-dev/convex/_generated/component.js").ComponentApi<"contextDev">;
 };

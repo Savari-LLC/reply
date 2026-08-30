@@ -154,7 +154,8 @@ describe("demo test API", () => {
 
     const outsiderId = await t.run(async (ctx) =>
       ctx.db.insert("users", {
-        tokenIdentifier: "seed|outsider",
+        authProvider: "password",
+        providerAccountId: "seed|outsider",
         username: "outsider",
         name: "Outsider",
       }),

@@ -14,12 +14,11 @@ const teammates: Array<{
   key: TeammateKey;
   username: string;
   name: string;
-  email: string;
 }> = [
-  { key: "maya", username: "maya", name: "Maya Haddad", email: "maya@reply.demo" },
-  { key: "noah", username: "noah", name: "Noah Clarke", email: "noah@reply.demo" },
-  { key: "leila", username: "leila", name: "Leila Mansour", email: "leila@reply.demo" },
-  { key: "omar", username: "omar", name: "Omar Farouk", email: "omar@reply.demo" },
+  { key: "maya", username: "maya", name: "Maya Haddad" },
+  { key: "noah", username: "noah", name: "Noah Clarke" },
+  { key: "leila", username: "leila", name: "Leila Mansour" },
+  { key: "omar", username: "omar", name: "Omar Farouk" },
 ];
 
 type InboxKey = "sales" | "accounts" | "support";
@@ -673,6 +672,13 @@ const threads: SeedThread[] = [
   },
 ];
 
+export function isSeedUser(user: Doc<"users">) {
+  return (
+    user.authProvider === "password" &&
+    (user.providerAccountId?.startsWith("seed|") ?? false)
+  );
+}
+
 async function isSeedOwned(ctx: MutationCtx, workspace: Doc<"workspaces">) {
   if (workspace.demoSeed === true) return true;
   const memberships = await ctx.db
@@ -682,7 +688,7 @@ async function isSeedOwned(ctx: MutationCtx, workspace: Doc<"workspaces">) {
   if (memberships.length === 0) return false;
   for (const membership of memberships) {
     const user = await ctx.db.get(membership.userId);
-    if (!user || !user.tokenIdentifier.startsWith("seed|")) return false;
+    if (!user || !isSeedUser(user)) return false;
   }
   return true;
 }
@@ -766,7 +772,7 @@ async function clearWorkspace(ctx: MutationCtx, workspace: Doc<"workspaces">) {
     .collect();
   for (const membership of memberships) {
     const user = await ctx.db.get(membership.userId);
-    if (user && user.tokenIdentifier.startsWith("seed|")) {
+    if (user && isSeedUser(user)) {
       await ctx.db.delete(user._id);
     }
     await ctx.db.delete(membership._id);
@@ -845,10 +851,10 @@ export async function seedDemo(ctx: MutationCtx, force: boolean) {
     const userIds = {} as Record<TeammateKey, Id<"users">>;
     for (const teammate of teammates) {
       const userId = await ctx.db.insert("users", {
-        tokenIdentifier: `seed|${teammate.username}`,
+        authProvider: "password",
+        providerAccountId: `seed|${teammate.username}`,
         username: teammate.username,
         name: teammate.name,
-        email: teammate.email,
       });
       userIds[teammate.key] = userId;
       await ctx.db.insert("memberships", {
