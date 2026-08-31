@@ -89,17 +89,17 @@ describe("workspace setup", () => {
 });
 
 describe("channels", () => {
-  test("connecting a channel creates it empty — no conversations are imported", async () => {
+  test("connecting a simulated channel creates it empty", async () => {
     const t = convexTest(schema, modules);
     const { asUser } = await setupWorkspace(t);
     const inboxes = await asUser.query(api.inbox.listInboxes, {});
     const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
     await asUser.mutation(api.channels.connect, {
       inboxId: sales._id,
-      provider: "gmail",
-      address: "Sales@Example.test",
+      provider: "whatsapp",
+      address: "+971 50 123 4567",
     });
-    // Conversations only arrive through simulated incoming emails.
+    // Conversations only arrive through simulated incoming messages.
     expect(await asUser.query(api.inbox.listThreads, { inboxId: sales._id })).toEqual([]);
     // No demo teammates are created either.
     const teammates = await asUser.query(api.inbox.listTeammates, {});
@@ -108,66 +108,38 @@ describe("channels", () => {
     const settings = await asUser.query(api.inboxes.listSettings, {});
     const salesSettings = settings.find((inbox) => inbox._id === sales._id)!;
     expect(salesSettings.channels).toHaveLength(1);
-    expect(salesSettings.channels[0]!.address).toBe("sales@example.test");
-    expect(salesSettings.channels[0]!.provider).toBe("gmail");
+    expect(salesSettings.channels[0]!.address).toBe("+971501234567");
+    expect(salesSettings.channels[0]!.provider).toBe("whatsapp");
   });
 
-  test("connecting the synthetic Gmail mailbox imports a company and personal mix", async () => {
+  test("email providers cannot bypass the OAuth connection flow", async () => {
     const t = convexTest(schema, modules);
-    const { asUser, workspaceId } = await setupWorkspace(t);
+    const { asUser } = await setupWorkspace(t);
     const inboxes = await asUser.query(api.inbox.listInboxes, {});
     const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
 
-    await asUser.mutation(api.channels.connect, {
-      inboxId: sales._id,
-      provider: "gmail",
-      address: "demo+sales@reply.example",
-    });
-
-    const threads = await t.run(async (ctx) =>
-      ctx.db
-        .query("threads")
-        .withIndex("by_workspaceId_and_lastMessageAt", (q) =>
-          q.eq("workspaceId", workspaceId),
-        )
-        .collect(),
-    );
-    const personalDomains = new Set([
-      "gmail.com",
-      "icloud.com",
-      "outlook.com",
-      "proton.me",
-      "yahoo.com",
-    ]);
-
-    expect(threads).toHaveLength(30);
-    expect(threads.filter((thread) => personalDomains.has(thread.senderDomain))).toHaveLength(18);
-    expect(threads.filter((thread) => !personalDomains.has(thread.senderDomain))).toHaveLength(12);
-    expect(threads.some((thread) => thread.senderDomain === "figma.com")).toBe(true);
-    expect(threads.some((thread) => thread.senderDomain === "gmail.com")).toBe(true);
-
-    const settings = await asUser.query(api.inboxes.listSettings, {});
-    const channel = settings
-      .find((inbox) => inbox._id === sales._id)
-      ?.channels[0];
-    expect(channel).toMatchObject({
-      provider: "gmail",
-      address: "demo+sales@reply.example",
-      threadCount: 30,
-      mailConnection: null,
-    });
+    await expect(
+      asUser.mutation(api.channels.connect, {
+        inboxId: sales._id,
+        provider: "gmail",
+        address: "demo+sales@reply.example",
+      }),
+    ).rejects.toThrow("Connect Gmail through OAuth");
+    await expect(
+      asUser.mutation(api.channels.connect, {
+        inboxId: sales._id,
+        provider: "outlook",
+        address: "sales@example.test",
+      }),
+    ).rejects.toThrow("Connect Outlook through OAuth");
+    expect(await asUser.query(api.inbox.listThreads, { inboxId: sales._id })).toEqual([]);
   });
 
-  test("every provider connects, and addresses are validated per provider", async () => {
+  test("simulated messaging providers connect and validate phone numbers", async () => {
     const t = convexTest(schema, modules);
     const { asUser } = await setupWorkspace(t);
     const inboxes = await asUser.query(api.inbox.listInboxes, {});
     const support = inboxes.find((inbox) => inbox.name === "Support")!;
-    await asUser.mutation(api.channels.connect, {
-      inboxId: support._id,
-      provider: "outlook",
-      address: "support@example.test",
-    });
     await asUser.mutation(api.channels.connect, {
       inboxId: support._id,
       provider: "whatsapp",
@@ -181,18 +153,9 @@ describe("channels", () => {
     const settings = await asUser.query(api.inboxes.listSettings, {});
     const channels = settings.find((inbox) => inbox._id === support._id)!.channels;
     expect(channels.map((channel) => channel.address)).toEqual([
-      "support@example.test",
       "+971501234567",
       "+441632960001",
     ]);
-    // A phone number is not a mailbox, and vice versa.
-    await expect(
-      asUser.mutation(api.channels.connect, {
-        inboxId: support._id,
-        provider: "gmail",
-        address: "+971501234500",
-      }),
-    ).rejects.toThrow(/valid Gmail address/);
     await expect(
       asUser.mutation(api.channels.connect, {
         inboxId: support._id,
@@ -210,14 +173,14 @@ describe("channels", () => {
     const support = inboxes.find((inbox) => inbox.name === "Support")!;
     await asUser.mutation(api.channels.connect, {
       inboxId: sales._id,
-      provider: "gmail",
-      address: "shared@example.test",
+      provider: "whatsapp",
+      address: "+971 50 123 4567",
     });
     await expect(
       asUser.mutation(api.channels.connect, {
         inboxId: support._id,
-        provider: "outlook",
-        address: "shared@example.test",
+        provider: "sms",
+        address: "+971501234567",
       }),
     ).rejects.toThrow(/already connected/);
   });
@@ -238,8 +201,8 @@ describe("channels", () => {
     ).rejects.toThrow(/not found/i);
     await asMember.mutation(api.channels.connect, {
       inboxId: personal._id,
-      provider: "gmail",
-      address: "noor@example.test",
+      provider: "whatsapp",
+      address: "+971501234568",
     });
     // The new channel starts empty; a simulated email delivers into it.
     expect(
@@ -260,8 +223,8 @@ describe("channels", () => {
     const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
     const channelId = await asAdmin.mutation(api.channels.connect, {
       inboxId: sales._id,
-      provider: "gmail",
-      address: "sales@example.test",
+      provider: "whatsapp",
+      address: "+971501234569",
     });
     // The member inherits access from the inbox, not from the channel.
     expect(
@@ -292,8 +255,8 @@ describe("channels", () => {
     const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
     const channelId = await asUser.mutation(api.channels.connect, {
       inboxId: sales._id,
-      provider: "gmail",
-      address: "sales@example.test",
+      provider: "whatsapp",
+      address: "+971501234570",
     });
     await asUser.mutation(api.simulate.simulateIncomingEmail, { inboxId: sales._id });
     expect(
@@ -310,8 +273,8 @@ describe("channels", () => {
     const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
     const channelId = await asUser.mutation(api.channels.connect, {
       inboxId: sales._id,
-      provider: "gmail",
-      address: "sales@example.test",
+      provider: "sms",
+      address: "+971501234571",
     });
     const { asUser: asOutsider } = await setupWorkspace(t, "mallory");
     await expect(
@@ -448,13 +411,13 @@ describe("inbox management and access", () => {
     const sales = inboxes.find((inbox) => inbox.name === "Sales")!;
     await asAdmin.mutation(api.channels.connect, {
       inboxId: support._id,
-      provider: "outlook",
-      address: "support@example.test",
+      provider: "whatsapp",
+      address: "+971501234572",
     });
     await asAdmin.mutation(api.channels.connect, {
       inboxId: sales._id,
-      provider: "gmail",
-      address: "sales@example.test",
+      provider: "sms",
+      address: "+971501234573",
     });
     await asAdmin.mutation(api.simulate.simulateIncomingEmail, { inboxId: support._id });
     await asAdmin.mutation(api.simulate.simulateIncomingEmail, { inboxId: sales._id });

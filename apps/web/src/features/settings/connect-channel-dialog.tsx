@@ -25,9 +25,8 @@ import {
 import { errorMessage } from "./constants";
 
 /**
- * Connecting a channel is how an inbox starts receiving conversations: pick the
- * provider, then authorize it or load the safe demo path. Gmail deliberately
- * imports synthetic mail without requesting access to a Google account.
+ * Connecting a channel is how an inbox starts receiving conversations: email
+ * providers use read-only OAuth while messaging providers use the preview flow.
  */
 export function ConnectChannelDialog({
   inbox,
@@ -58,18 +57,7 @@ export function ConnectChannelDialog({
     if (!provider || providerMeta(provider).availability !== "available") return;
     setPending(true);
     try {
-      if (provider === "gmail") {
-        await connect({
-          inboxId: inbox._id,
-          provider,
-          address: `demo+${inbox._id}@reply.example`,
-        });
-        toast.success(`30 demo conversations imported into ${inbox.name}`, {
-          description:
-            "Company senders will gain live Context.dev profiles; personal senders stay ordinary mail.",
-        });
-        onOpenChange(false);
-      } else if (provider === "outlook") {
+      if (provider === "gmail" || provider === "outlook") {
         const result = await startOauth({ inboxId: inbox._id, provider });
         window.location.assign(result.url);
       } else {
@@ -106,9 +94,7 @@ export function ConnectChannelDialog({
           </DialogTitle>
           <DialogDescription>
             {meta
-              ? provider === "gmail"
-                ? `Load a safe Gmail-style demo inbox into ${inbox.name} without Google account access.`
-                : `Authorize the ${meta.label} account that should deliver into ${inbox.name}.`
+              ? `Authorize the ${meta.label} account that should deliver into ${inbox.name}.`
               : "Choose where these conversations come from. Everything the channel receives lands in this inbox."}
           </DialogDescription>
         </DialogHeader>
@@ -205,9 +191,9 @@ export function ConnectChannelDialog({
             <p className="flex items-start gap-2 rounded-lg bg-(--inbox-hover) px-3 py-2.5 text-xs leading-5 text-(--inbox-text-muted)">
               <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               {provider === "gmail"
-                ? "No Gmail account is opened or read. Reply imports 30 synthetic conversations: 12 company senders for live Context.dev enrichment and 18 ordinary personal senders."
+                ? "You will continue to Google to grant read-only mailbox access. Reply syncs incoming mail automatically and never sends mail automatically."
                 : isEmailProvider
-                  ? "You will continue to Microsoft to grant read-only mailbox access. Reply never sends mail automatically."
+                  ? "You will continue to Microsoft to grant read-only mailbox access. Reply syncs incoming mail and never sends mail automatically."
                 : `${meta.label} authorization is simulated in this preview. The channel starts empty — use Simulate in the inbox to deliver incoming messages enriched with live company context.`}
             </p>
 
@@ -217,13 +203,7 @@ export function ConnectChannelDialog({
               className="rounded-lg! bg-[#202d2a] hover:bg-[#30423e]"
             >
               {pending ? <Spinner /> : <Plug aria-hidden />}
-              {pending
-                ? provider === "gmail"
-                  ? "Importing demo conversations…"
-                  : `Connecting ${meta.label}…`
-                : provider === "gmail"
-                  ? "Import 30 demo conversations"
-                  : `Connect ${meta.label}`}
+              {pending ? `Connecting ${meta.label}…` : `Connect ${meta.label}`}
             </Button>
           </form>
         )}

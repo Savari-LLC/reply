@@ -9,6 +9,7 @@ import {
   authorizationUrl,
   decryptSecret,
   encryptSecret,
+  fetchMailboxThreads,
   hashToken,
   pkceChallenge,
   providerConfiguration,
@@ -16,7 +17,6 @@ import {
   refreshAccessToken,
   type MailProvider,
 } from "./mailProvider";
-import { buildSeedThreads, ENRICHED_SEED_DOMAINS } from "./mailSeed";
 
 const providerValidator = v.union(v.literal("gmail"), v.literal("outlook"));
 const syncResultValidator = v.object({
@@ -97,9 +97,12 @@ async function runSync(
   });
   if (!started) return { threads: 0, insertedThreads: 0, insertedMessages: 0 };
   try {
-    // Hackathon mode: the live provider fetch is disabled. We seed demo
-    // threads instead so a freshly connected mailbox has data immediately.
-    const threads = buildSeedThreads(connection.emailAddress, Date.now());
+    const accessToken = await accessTokenForConnection(ctx, connection);
+    const threads = await fetchMailboxThreads(
+      connection.provider as MailProvider,
+      accessToken,
+      connection.emailAddress,
+    );
     let insertedThreads = 0;
     let insertedMessages = 0;
     for (const thread of threads) {
@@ -109,19 +112,6 @@ async function runSync(
       );
       if (result.insertedThread) insertedThreads += 1;
       insertedMessages += result.insertedMessages;
-    }
-    // Enrich the seeded senders that write from real company domains so their
-    // Context.dev company profiles are ready when the operator opens a thread.
-    const seededDomains = new Set(
-      threads
-        .map((thread) => thread.senderEmail.split("@")[1] ?? "")
-        .filter((domain) => ENRICHED_SEED_DOMAINS.includes(domain)),
-    );
-    for (const domain of seededDomains) {
-      await ctx.scheduler.runAfter(0, internal.companyContext.enrichDomain, {
-        workspaceId: connection.workspaceId,
-        domain,
-      });
     }
     await ctx.runMutation(internal.mail.finishSync, {
       connectionId: connection._id,
