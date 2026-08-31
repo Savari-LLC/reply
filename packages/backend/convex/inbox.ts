@@ -183,7 +183,8 @@ export const listInboxes = query({
             address: channel.address,
             status: channel.status,
           })),
-          openCount: inboxThreads.filter((thread) => thread.status === "open").length,
+          // Matches the sidebar "Open" view, which lists open + waiting threads.
+          openCount: inboxThreads.filter((thread) => thread.status !== "closed").length,
           unreadCount,
         };
       }),
