@@ -1,8 +1,8 @@
 /**
- * Hackathon stand-in for the live Gmail/Outlook sync: instead of fetching real
- * mail we seed a fixed set of demo threads. Senders on the domains listed in
- * `ENRICHED_SEED_DOMAINS` use real company domains so Context.dev can resolve
- * them into live company profiles; the rest are ordinary personal senders.
+ * Hackathon stand-in for live mailbox access: instead of fetching real mail we
+ * seed a fixed set of demo threads. Senders on `ENRICHED_SEED_DOMAINS` use real
+ * company domains so Context.dev can resolve live profiles; the rest are
+ * ordinary personal senders using public mailbox providers.
  */
 
 export type ImportedMessage = {
@@ -33,6 +33,10 @@ export const ENRICHED_SEED_DOMAINS = [
   "intercom.com",
   "canva.com",
   "linear.app",
+  "stripe.com",
+  "github.com",
+  "vercel.com",
+  "cloudflare.com",
 ];
 
 type SeedMessage = {
@@ -339,6 +343,141 @@ const SEED_THREADS: SeedThread[] = [
       {
         direction: "inbound",
         body: "Hi,\n\nHeads up that the team domain registration expires at the end of the month. I can renew for 1 or 3 years — let me know which you'd prefer and I'll sort it.\n\nRachel",
+      },
+    ],
+  },
+  {
+    subject: "Payment dispute handoff workflow",
+    senderName: "Maya Chen",
+    senderEmail: "maya.chen@stripe.com",
+    daysAgo: 0.3,
+    unread: true,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hi team,\n\nOur operations group needs a cleaner handoff when payment disputes arrive by email. Can Reply route each case to an owner while keeping the full customer history visible?\n\nBest,\nMaya Chen\nOperations, Stripe",
+      },
+    ],
+  },
+  {
+    subject: "Shared queue for open-source support",
+    senderName: "Owen Brooks",
+    senderEmail: "owen.brooks@github.com",
+    daysAgo: 1.5,
+    unread: true,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hello,\n\nWe receive open-source program questions across several aliases. Could Reply consolidate them into a shared queue without losing which address each request came through?\n\nThanks,\nOwen Brooks\nDeveloper Relations, GitHub",
+      },
+    ],
+  },
+  {
+    subject: "Deployment alert follow-ups",
+    senderName: "Sofia Martin",
+    senderEmail: "sofia.martin@vercel.com",
+    daysAgo: 2.2,
+    unread: false,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hi,\n\nCustomer replies to deployment alerts are landing in individual inboxes. We are looking for a shared workflow with ownership, priority, and an obvious next action. Is that a fit for Reply?\n\nBest,\nSofia Martin\nCustomer Success, Vercel",
+      },
+      {
+        direction: "outbound",
+        hoursAfter: 2,
+        body: "Hi Sofia,\n\nYes — each incoming conversation can be assigned, prioritized, and moved through a shared status workflow. I would be happy to show you the alert handoff flow.\n\nBest,\nThe Reply team",
+      },
+    ],
+  },
+  {
+    subject: "Abuse inbox coverage across regions",
+    senderName: "Liam Wong",
+    senderEmail: "liam.wong@cloudflare.com",
+    daysAgo: 3.8,
+    unread: false,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hello,\n\nOur regional teams need clearer coverage for time-sensitive reports arriving by email. Can Reply show who owns a thread and make the handover visible to the next shift?\n\nRegards,\nLiam Wong\nTrust Operations, Cloudflare",
+      },
+    ],
+  },
+  {
+    subject: "Shipping address correction",
+    senderName: "Nora Ibrahim",
+    senderEmail: "nora.ibrahim@proton.me",
+    daysAgo: 0.7,
+    unread: true,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hi,\n\nI just noticed the apartment number is missing from order #10841. Could you update the shipping address before it leaves the warehouse?\n\nThank you,\nNora",
+      },
+    ],
+  },
+  {
+    subject: "Interview time confirmation",
+    senderName: "Yasmin Rahman",
+    senderEmail: "yasmin.rahman.careers@gmail.com",
+    daysAgo: 1.9,
+    unread: true,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hello,\n\nThank you for the invitation. I can confirm the interview for Wednesday at 2:00 PM GST. Please let me know if there is anything I should prepare.\n\nBest,\nYasmin",
+      },
+    ],
+  },
+  {
+    subject: "Receipt for client dinner",
+    senderName: "Ben Carter",
+    senderEmail: "ben.carter.ops@yahoo.com",
+    daysAgo: 4.2,
+    unread: false,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hi accounts,\n\nAttaching the receipt for Thursday's client dinner. The total was AED 680 and the project code is NS-204.\n\nThanks,\nBen",
+      },
+    ],
+  },
+  {
+    subject: "Newsletter sponsorship details",
+    senderName: "Chloe Evans",
+    senderEmail: "chloe.evans.media@outlook.com",
+    daysAgo: 6.4,
+    unread: false,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hi,\n\nCould you send over the audience breakdown and available dates for next month's newsletter sponsorship? We are considering the lead placement.\n\nBest,\nChloe",
+      },
+    ],
+  },
+  {
+    subject: "Booking change for Friday",
+    senderName: "Mateo Silva",
+    senderEmail: "mateo.silva@icloud.com",
+    daysAgo: 9,
+    unread: false,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hello,\n\nWould it be possible to move Friday's booking from 6:00 to 7:30 PM? The booking reference is RPL-7712.\n\nMany thanks,\nMateo",
+      },
+    ],
+  },
+  {
+    subject: "Vendor agreement signature",
+    senderName: "Evelyn Moore",
+    senderEmail: "evelyn.moore@proton.me",
+    daysAgo: 11,
+    unread: false,
+    messages: [
+      {
+        direction: "inbound",
+        body: "Hi,\n\nThe vendor agreement looks good from our side. Please send the final signature copy and I will return it by end of day.\n\nRegards,\nEvelyn",
       },
     ],
   },
