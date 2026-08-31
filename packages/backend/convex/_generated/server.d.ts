@@ -38,6 +38,8 @@ type Env = {
   readonly CONTEXT_DEV_API_KEY: string;
   readonly MAIL_GOOGLE_CLIENT_ID: string | undefined;
   readonly MAIL_GOOGLE_CLIENT_SECRET: string | undefined;
+  readonly MAIL_GOOGLE_PUBSUB_SERVICE_ACCOUNT: string | undefined;
+  readonly MAIL_GOOGLE_PUBSUB_TOPIC: string | undefined;
   readonly MAIL_MICROSOFT_CLIENT_ID: string | undefined;
   readonly MAIL_MICROSOFT_CLIENT_SECRET: string | undefined;
   readonly MAIL_TOKEN_ENCRYPTION_KEY: string | undefined;

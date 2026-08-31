@@ -83,12 +83,24 @@ Configure these values separately on every Convex deployment:
 cd packages/backend
 bunx --bun convex env set MAIL_GOOGLE_CLIENT_ID your-google-client-id
 bunx --bun convex env set MAIL_GOOGLE_CLIENT_SECRET your-google-client-secret
+bunx --bun convex env set MAIL_GOOGLE_PUBSUB_TOPIC projects/your-project/topics/reply-gmail
+bunx --bun convex env set MAIL_GOOGLE_PUBSUB_SERVICE_ACCOUNT reply-gmail-push@your-project.iam.gserviceaccount.com
 bunx --bun convex env set MAIL_MICROSOFT_CLIENT_ID your-microsoft-client-id
 bunx --bun convex env set MAIL_MICROSOFT_CLIENT_SECRET your-microsoft-client-secret
 bunx --bun convex env set MAIL_TOKEN_ENCRYPTION_KEY your-base64-encoded-32-byte-key
 ```
 
-Generate the encryption key once with `openssl rand -base64 32`, store it securely, and never commit it. Losing or rotating this key disconnects existing channels. Open **Settings → Inboxes**, choose the destination inbox, and select **Connect channel** to authorize Gmail or Outlook. Imported conversations remain after disconnecting. Outbound delivery and provider webhooks are intentionally not enabled yet.
+Generate the encryption key once with `openssl rand -base64 32`, store it securely, and never commit it. Losing or rotating this key disconnects existing channels. Open **Settings → Inboxes**, choose the destination inbox, and select **Connect channel** to authorize Gmail or Outlook. Imported conversations remain after disconnecting.
+
+For guided Gmail Pub/Sub setup, run `./scripts/setup-gmail-push.sh`. The wizard opens each Google Cloud screen, validates the values, and can write the non-secret identifiers to the selected Convex deployment.
+
+For Gmail live sync, create the Pub/Sub topic in the same Google Cloud project as the OAuth client, grant `gmail-api-push@system.gserviceaccount.com` the Pub/Sub Publisher role on the topic, and create an authenticated push subscription targeting:
+
+```text
+https://<your-convex-deployment>.convex.site/mail/webhooks/gmail
+```
+
+Configure the push subscription to issue an OIDC token from `MAIL_GOOGLE_PUBSUB_SERVICE_ACCOUNT`, with the endpoint URL above as its audience. The Pub/Sub service agent needs `roles/iam.serviceAccountTokenCreator` for that service account. Reply verifies the Google-signed token, renews Gmail watches before expiry, and performs a 15-minute fallback sync when push delivery is delayed or dropped.
 
 ## Commands
 

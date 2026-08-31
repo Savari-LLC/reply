@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import {
   internalMutation,
@@ -13,6 +14,9 @@ import { canManageInbox, requireManageableChannelInbox } from "./lib/access";
 import schema from "./schema";
 
 const providerValidator = v.union(v.literal("gmail"), v.literal("outlook"));
+const AUTO_SYNC_DEBOUNCE_MS = 30_000;
+const MAX_AUTOMATIC_SYNCS_PER_RUN = 50;
+const MAX_WATCH_RENEWALS_PER_RUN = 25;
 const importedMessageValidator = v.object({
   externalMessageId: v.string(),
   direction: v.union(v.literal("inbound"), v.literal("outbound")),
@@ -251,6 +255,10 @@ export const completeOauth = internalMutation({
         status: "connected",
         syncStatus: "idle",
         lastSyncError: undefined,
+        gmailHistoryId: undefined,
+        gmailWatchExpirationAt: undefined,
+        gmailWatchError: undefined,
+        nextAutoSyncAt: undefined,
         updatedAt: now,
       });
       return { connectionId: connection._id, channelId: channel._id };
@@ -306,20 +314,158 @@ export const getConnectionForSync = internalQuery({
   },
 });
 
-export const markSyncStarted = internalMutation({
-  args: { connectionId: v.id("mailConnections") },
+async function scheduleConnectionSync(
+  ctx: MutationCtx,
+  connection: Doc<"mailConnections">,
+  now: number,
+  delayMs: number,
+) {
+  if (connection.status !== "connected") return false;
+  if (connection.nextAutoSyncAt !== undefined && connection.nextAutoSyncAt > now) return false;
+  const effectiveDelay =
+    connection.syncStatus === "syncing" && connection.updatedAt > now - 10 * 60 * 1000
+      ? Math.max(delayMs, 10_000)
+      : delayMs;
+  await ctx.scheduler.runAfter(effectiveDelay, internal.mailActions.syncConnectedChannel, {
+    channelId: connection.channelId,
+  });
+  await ctx.db.patch(connection._id, { nextAutoSyncAt: now + AUTO_SYNC_DEBOUNCE_MS });
+  return true;
+}
+
+export const queueGmailPushSync = internalMutation({
+  args: {
+    emailAddress: v.string(),
+    historyId: v.string(),
+    now: v.number(),
+  },
+  returns: v.object({ matched: v.number(), scheduled: v.number() }),
+  handler: async (ctx, args) => {
+    const emailAddress = args.emailAddress.trim().toLowerCase();
+    const connections = await ctx.db
+      .query("mailConnections")
+      .withIndex("by_provider_and_emailAddress", (q) =>
+        q.eq("provider", "gmail").eq("emailAddress", emailAddress),
+      )
+      .take(10);
+    let matched = 0;
+    let scheduled = 0;
+    for (const connection of connections) {
+      if (connection.status !== "connected") continue;
+      matched += 1;
+      await ctx.db.patch(connection._id, { gmailHistoryId: args.historyId });
+      if (await scheduleConnectionSync(ctx, connection, args.now, 0)) scheduled += 1;
+    }
+    return { matched, scheduled };
+  },
+});
+
+export const scheduleGmailFallbackSyncs = internalMutation({
+  args: { now: v.optional(v.number()) },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
+    const connections = await ctx.db
+      .query("mailConnections")
+      .withIndex("by_provider_and_status", (q) =>
+        q.eq("provider", "gmail").eq("status", "connected"),
+      )
+      .take(MAX_AUTOMATIC_SYNCS_PER_RUN);
+    let scheduled = 0;
+    for (const connection of connections) {
+      if (await scheduleConnectionSync(ctx, connection, now, scheduled * 250)) {
+        scheduled += 1;
+      }
+    }
+    return scheduled;
+  },
+});
+
+export const scheduleGmailWatchRenewals = internalMutation({
+  args: { now: v.optional(v.number()) },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
+    const renewBefore = now + 24 * 60 * 60 * 1000;
+    const connections = await ctx.db
+      .query("mailConnections")
+      .withIndex("by_provider_and_status", (q) =>
+        q.eq("provider", "gmail").eq("status", "connected"),
+      )
+      .take(100);
+    let scheduled = 0;
+    for (const connection of connections) {
+      if (
+        connection.gmailWatchExpirationAt === undefined ||
+        connection.gmailWatchExpirationAt <= renewBefore
+      ) {
+        await ctx.scheduler.runAfter(
+          scheduled * 250,
+          internal.mailActions.configureGmailWatch,
+          { channelId: connection.channelId },
+        );
+        scheduled += 1;
+        if (scheduled === MAX_WATCH_RENEWALS_PER_RUN) break;
+      }
+    }
+    return scheduled;
+  },
+});
+
+export const recordGmailWatch = internalMutation({
+  args: {
+    connectionId: v.id("mailConnections"),
+    historyId: v.string(),
+    expirationAt: v.number(),
+  },
   returns: v.null(),
+  handler: async (ctx, args) => {
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection || connection.provider !== "gmail" || connection.status !== "connected") {
+      throw new Error("Gmail connection is not active");
+    }
+    await ctx.db.patch(connection._id, {
+      gmailHistoryId: args.historyId,
+      gmailWatchExpirationAt: args.expirationAt,
+      gmailWatchError: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const failGmailWatch = internalMutation({
+  args: { connectionId: v.id("mailConnections"), message: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection || connection.provider !== "gmail") return null;
+    await ctx.db.patch(connection._id, {
+      gmailWatchError: args.message.slice(0, 300),
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const markSyncStarted = internalMutation({
+  args: { connectionId: v.id("mailConnections"), now: v.optional(v.number()) },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const connection = await ctx.db.get(args.connectionId);
     if (!connection || connection.status !== "connected") {
       throw new Error("Mailbox connection is not active");
     }
+    const now = args.now ?? Date.now();
+    if (connection.syncStatus === "syncing" && connection.updatedAt > now - 10 * 60 * 1000) {
+      return false;
+    }
     await ctx.db.patch(connection._id, {
       syncStatus: "syncing",
       lastSyncError: undefined,
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
-    return null;
+    return true;
   },
 });
 
@@ -459,6 +605,7 @@ export const finishSync = internalMutation({
       syncStatus: "idle",
       lastSyncedAt: args.syncedAt,
       lastSyncError: undefined,
+      nextAutoSyncAt: undefined,
       updatedAt: args.syncedAt,
     });
     return null;
@@ -474,6 +621,7 @@ export const failSync = internalMutation({
     await ctx.db.patch(connection._id, {
       syncStatus: "error",
       lastSyncError: args.message.slice(0, 300),
+      nextAutoSyncAt: undefined,
       updatedAt: Date.now(),
     });
     return null;
@@ -502,6 +650,9 @@ export const disconnect = mutation({
       status: "disconnected",
       syncStatus: "idle",
       lastSyncError: undefined,
+      gmailWatchExpirationAt: undefined,
+      gmailWatchError: undefined,
+      nextAutoSyncAt: undefined,
       updatedAt: Date.now(),
     });
     return null;

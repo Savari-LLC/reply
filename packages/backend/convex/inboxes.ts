@@ -23,6 +23,12 @@ const channelValidator = v.object({
       syncStatus: v.union(v.literal("idle"), v.literal("syncing"), v.literal("error")),
       lastSyncedAt: v.union(v.number(), v.null()),
       lastSyncError: v.union(v.string(), v.null()),
+      gmailWatchStatus: v.union(
+        v.literal("active"),
+        v.literal("pending"),
+        v.literal("error"),
+        v.literal("not_applicable"),
+      ),
     }),
     v.null(),
   ),
@@ -125,6 +131,15 @@ export const listSettings = query({
                 syncStatus: mailConnection.syncStatus,
                 lastSyncedAt: mailConnection.lastSyncedAt ?? null,
                 lastSyncError: mailConnection.lastSyncError ?? null,
+                gmailWatchStatus:
+                  channel.provider !== "gmail"
+                    ? ("not_applicable" as const)
+                    : mailConnection.gmailWatchExpirationAt !== undefined &&
+                        mailConnection.gmailWatchExpirationAt > Date.now()
+                      ? ("active" as const)
+                      : mailConnection.gmailWatchError
+                        ? ("error" as const)
+                        : ("pending" as const),
               }
             : null,
         });

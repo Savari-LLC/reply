@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -9,6 +9,11 @@ import schema from "./schema";
 
 const modules = import.meta.glob(["./**/*.{ts,js}", "!./**/*.test.ts"]);
 type TestClient = ReturnType<typeof convexTest>;
+
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
+});
 
 async function createUser(t: TestClient, username: string) {
   return await t.run(async (ctx) =>
@@ -220,5 +225,110 @@ describe("mail channels", () => {
     expect(stored).toMatchObject({ status: "disconnected", syncStatus: "idle" });
     expect(stored?.accessTokenEncrypted).toBeUndefined();
     expect(stored?.refreshTokenEncrypted).toBeUndefined();
+  });
+
+  test("queues Gmail webhook syncs for the matching active connection and debounces bursts", async () => {
+    vi.useFakeTimers();
+    const t = convexTest(schema, modules);
+    const { inboxId, userId, workspaceId } = await createWorkspace(t);
+    const { connectionId } = await connectMailbox(t, workspaceId, inboxId, userId);
+
+    await expect(
+      t.mutation(internal.mail.queueGmailPushSync, {
+        emailAddress: "OWNER@EXAMPLE.COM",
+        historyId: "100",
+        now: 1_000,
+      }),
+    ).resolves.toEqual({ matched: 1, scheduled: 1 });
+    await expect(
+      t.mutation(internal.mail.queueGmailPushSync, {
+        emailAddress: "owner@example.com",
+        historyId: "101",
+        now: 1_001,
+      }),
+    ).resolves.toEqual({ matched: 1, scheduled: 0 });
+    await expect(
+      t.mutation(internal.mail.queueGmailPushSync, {
+        emailAddress: "other@example.com",
+        historyId: "102",
+        now: 1_002,
+      }),
+    ).resolves.toEqual({ matched: 0, scheduled: 0 });
+
+    const connection = await t.run(async (ctx) => ctx.db.get(connectionId));
+    expect(connection?.gmailHistoryId).toBe("101");
+    expect(connection?.nextAutoSyncAt).toBeGreaterThan(1_001);
+  });
+
+  test("fallback scheduling includes connected Gmail mailboxes but not Outlook", async () => {
+    vi.useFakeTimers();
+    const t = convexTest(schema, modules);
+    const { inboxId, userId, workspaceId } = await createWorkspace(t);
+    const gmail = await connectMailbox(t, workspaceId, inboxId, userId);
+    const outlook = await t.mutation(internal.mail.completeOauth, {
+      workspaceId,
+      inboxId,
+      channelId: null,
+      userId,
+      provider: "outlook",
+      providerAccountId: "outlook-account",
+      emailAddress: "outlook@example.com",
+      accessTokenEncrypted: "encrypted-access-token",
+      refreshTokenEncrypted: "encrypted-refresh-token",
+      accessTokenExpiresAt: 2_000_000_000_000,
+      scope: "Mail.Read",
+    });
+
+    await expect(
+      t.mutation(internal.mail.scheduleGmailFallbackSyncs, { now: 5_000 }),
+    ).resolves.toBe(1);
+    await expect(
+      t.mutation(internal.mail.scheduleGmailFallbackSyncs, { now: 5_001 }),
+    ).resolves.toBe(0);
+
+    const [gmailConnection, outlookConnection] = await t.run(async (ctx) =>
+      Promise.all([ctx.db.get(gmail.connectionId), ctx.db.get(outlook.connectionId)]),
+    );
+    expect(gmailConnection?.nextAutoSyncAt).toBeGreaterThan(5_000);
+    expect(outlookConnection?.nextAutoSyncAt).toBeUndefined();
+  });
+
+  test("prevents concurrent mailbox syncs while allowing stale claims to recover", async () => {
+    const t = convexTest(schema, modules);
+    const { inboxId, userId, workspaceId } = await createWorkspace(t);
+    const { connectionId } = await connectMailbox(t, workspaceId, inboxId, userId);
+
+    await expect(
+      t.mutation(internal.mail.markSyncStarted, { connectionId, now: 1_000 }),
+    ).resolves.toBe(true);
+    await expect(
+      t.mutation(internal.mail.markSyncStarted, { connectionId, now: 1_001 }),
+    ).resolves.toBe(false);
+    await expect(
+      t.mutation(internal.mail.markSyncStarted, { connectionId, now: 700_001 }),
+    ).resolves.toBe(true);
+  });
+
+  test("schedules missing and expiring Gmail watches for renewal", async () => {
+    vi.useFakeTimers();
+    const t = convexTest(schema, modules);
+    const { inboxId, userId, workspaceId } = await createWorkspace(t);
+    const { connectionId } = await connectMailbox(t, workspaceId, inboxId, userId);
+
+    await expect(
+      t.mutation(internal.mail.scheduleGmailWatchRenewals, { now: 10_000 }),
+    ).resolves.toBe(1);
+
+    await t.mutation(internal.mail.recordGmailWatch, {
+      connectionId,
+      historyId: "200",
+      expirationAt: 100_000_000,
+    });
+    await expect(
+      t.mutation(internal.mail.scheduleGmailWatchRenewals, { now: 10_000 }),
+    ).resolves.toBe(0);
+    await expect(
+      t.mutation(internal.mail.scheduleGmailWatchRenewals, { now: 20_000_000 }),
+    ).resolves.toBe(1);
   });
 });

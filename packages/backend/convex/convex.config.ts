@@ -22,6 +22,8 @@ const app = defineApp({
     RESEND_FROM_EMAIL: v.string(),
     MAIL_GOOGLE_CLIENT_ID: v.optional(v.string()),
     MAIL_GOOGLE_CLIENT_SECRET: v.optional(v.string()),
+    MAIL_GOOGLE_PUBSUB_TOPIC: v.optional(v.string()),
+    MAIL_GOOGLE_PUBSUB_SERVICE_ACCOUNT: v.optional(v.string()),
     MAIL_MICROSOFT_CLIENT_ID: v.optional(v.string()),
     MAIL_MICROSOFT_CLIENT_SECRET: v.optional(v.string()),
     MAIL_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),

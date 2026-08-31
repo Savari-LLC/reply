@@ -1,16 +1,20 @@
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { requireIdentity } from "./authHelpers";
+import { registerGmailWatch } from "./gmailPush";
 import {
   authorizationUrl,
+  decryptSecret,
   encryptSecret,
   hashToken,
   pkceChallenge,
   providerConfiguration,
   randomToken,
+  refreshAccessToken,
+  type MailProvider,
 } from "./mailProvider";
 import { buildSeedThreads, ENRICHED_SEED_DOMAINS } from "./mailSeed";
 
@@ -55,6 +59,30 @@ export const startOauth = action({
   },
 });
 
+async function accessTokenForConnection(
+  ctx: ActionCtx,
+  connection: Doc<"mailConnections">,
+) {
+  let accessToken = await decryptSecret(connection.accessTokenEncrypted!);
+  if (connection.accessTokenExpiresAt > Date.now() + 60_000) return accessToken;
+  if (!connection.refreshTokenEncrypted) {
+    throw new Error("The mailbox session expired. Reconnect the mailbox to continue.");
+  }
+  const refreshToken = await decryptSecret(connection.refreshTokenEncrypted);
+  const refreshed = await refreshAccessToken(connection.provider as MailProvider, refreshToken);
+  accessToken = refreshed.accessToken;
+  await ctx.runMutation(internal.mail.updateTokens, {
+    connectionId: connection._id,
+    accessTokenEncrypted: await encryptSecret(refreshed.accessToken),
+    refreshTokenEncrypted: refreshed.refreshToken
+      ? await encryptSecret(refreshed.refreshToken)
+      : undefined,
+    accessTokenExpiresAt: refreshed.expiresAt,
+    scope: refreshed.scope,
+  });
+  return accessToken;
+}
+
 async function runSync(
   ctx: ActionCtx,
   channelId: Id<"channels">,
@@ -64,7 +92,10 @@ async function runSync(
     channelId,
     actorSubject,
   });
-  await ctx.runMutation(internal.mail.markSyncStarted, { connectionId: connection._id });
+  const started: boolean = await ctx.runMutation(internal.mail.markSyncStarted, {
+    connectionId: connection._id,
+  });
+  if (!started) return { threads: 0, insertedThreads: 0, insertedMessages: 0 };
   try {
     // Hackathon mode: the live provider fetch is disabled. We seed demo
     // threads instead so a freshly connected mailbox has data immediately.
@@ -107,6 +138,30 @@ async function runSync(
   }
 }
 
+async function configureGmailWatchForChannel(ctx: ActionCtx, channelId: Id<"channels">) {
+  const syncContext: {
+    connection: Doc<"mailConnections">;
+    channel: Doc<"channels">;
+  } = await ctx.runQuery(internal.mail.getConnectionForSync, { channelId });
+  if (syncContext.connection.provider !== "gmail") return false;
+  try {
+    const accessToken = await accessTokenForConnection(ctx, syncContext.connection);
+    const watch = await registerGmailWatch(accessToken);
+    await ctx.runMutation(internal.mail.recordGmailWatch, {
+      connectionId: syncContext.connection._id,
+      historyId: watch.historyId,
+      expirationAt: watch.expirationAt,
+    });
+    return true;
+  } catch (error) {
+    await ctx.runMutation(internal.mail.failGmailWatch, {
+      connectionId: syncContext.connection._id,
+      message: errorMessage(error),
+    });
+    return false;
+  }
+}
+
 export const syncNow = action({
   args: { channelId: v.id("channels") },
   returns: syncResultValidator,
@@ -120,4 +175,10 @@ export const syncConnectedChannel = internalAction({
   args: { channelId: v.id("channels") },
   returns: syncResultValidator,
   handler: async (ctx, args) => await runSync(ctx, args.channelId),
+});
+
+export const configureGmailWatch = internalAction({
+  args: { channelId: v.id("channels") },
+  returns: v.boolean(),
+  handler: async (ctx, args) => await configureGmailWatchForChannel(ctx, args.channelId),
 });

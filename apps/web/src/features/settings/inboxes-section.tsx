@@ -307,7 +307,13 @@ function ChannelRow({
             ? " · Syncing…"
             : channel.mailConnection?.lastSyncError
               ? " · Sync needs attention"
-              : ""}
+              : channel.mailConnection?.gmailWatchStatus === "active"
+                ? " · Live sync on"
+                : channel.mailConnection?.gmailWatchStatus === "error"
+                  ? " · Live push needs attention"
+                  : channel.mailConnection?.gmailWatchStatus === "pending"
+                    ? " · Enabling live sync…"
+                    : ""}
         </p>
       </div>
       {canManage ? (

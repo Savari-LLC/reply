@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
+import { parseGmailPushPayload, verifyGmailPushRequest } from "./gmailPush";
 import {
   appSettingsUrl,
   decryptSecret,
@@ -129,11 +130,41 @@ http.route({
       await ctx.scheduler.runAfter(0, internal.mailActions.syncConnectedChannel, {
         channelId: connection.channelId,
       });
+      if (state.provider === "gmail") {
+        await ctx.scheduler.runAfter(0, internal.mailActions.configureGmailWatch, {
+          channelId: connection.channelId,
+        });
+      }
       return redirect(appSettingsUrl("connected"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Mailbox connection failed";
       return redirect(appSettingsUrl("error", message));
     }
+  }),
+});
+
+http.route({
+  path: "/mail/webhooks/gmail",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      await verifyGmailPushRequest(request);
+    } catch {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const rawBody = await request.text();
+    if (rawBody.length > 64_000) return new Response("Payload too large", { status: 413 });
+    let payload: ReturnType<typeof parseGmailPushPayload>;
+    try {
+      payload = parseGmailPushPayload(JSON.parse(rawBody) as unknown);
+    } catch {
+      return new Response("Invalid notification", { status: 400 });
+    }
+    await ctx.runMutation(internal.mail.queueGmailPushSync, {
+      ...payload,
+      now: Date.now(),
+    });
+    return new Response(null, { status: 204 });
   }),
 });
 

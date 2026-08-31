@@ -276,12 +276,18 @@ export default defineSchema({
     syncStatus: v.union(v.literal("idle"), v.literal("syncing"), v.literal("error")),
     lastSyncedAt: v.optional(v.number()),
     lastSyncError: v.optional(v.string()),
+    gmailHistoryId: v.optional(v.string()),
+    gmailWatchExpirationAt: v.optional(v.number()),
+    gmailWatchError: v.optional(v.string()),
+    nextAutoSyncAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_inboxId", ["inboxId"])
     .index("by_channelId", ["channelId"])
     .index("by_workspaceId", ["workspaceId"])
+    .index("by_provider_and_status", ["provider", "status"])
+    .index("by_provider_and_emailAddress", ["provider", "emailAddress"])
     .index("by_workspaceId_and_provider_and_providerAccountId", [
       "workspaceId",
       "provider",

@@ -110,6 +110,7 @@
         "convex": "catalog:",
         "convex-helpers": "^0.1.123",
         "dotenv": "catalog:",
+        "jose": "5.10.0",
         "zod": "catalog:",
       },
       "devDependencies": {
